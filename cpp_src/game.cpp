@@ -4,37 +4,9 @@
 #include <conio.h>
 #include <ctime>
 #include <windows.h>
+#include "StructsAndConstants.h" // Include the header file for constants and structs
 using namespace std;
-// Constants for directions and game states and grid elements
-#define UP 0
-#define RIGHT 1
-#define DOWN 2
-#define LEFT 3
-#define EMPTY 0
-#define SNAKE 1
-#define FOOD 2
-#define OBSTACLE 3
-#define GRID_SIZE 20
-#define INITIAL_SNAKE_LENGTH 3
-#define MENU 0
-#define PLAYING 1
-#define GAMEOVER 2
-#define GAMEWON 3
-#define SNAKE_SPEED 100 // Speed of the snake in milliseconds
 
-
-struct stepResult//for ai agent
-{
-    float reward; // Reward for the current step
-    bool done; // Whether the game is over
-    float distFoodX;// Distance to food in x direction
-    float distFoodY; // Distance to food in y direction
-    float distToDangerForward; // Whether there is danger ahead
-    float distToDangerLeft;// Whether there is danger to the left
-    float distToDangerRight; // Whether there is danger to the left or right
-    int direction; // Current direction of the snake
-
-};
 
 
 
