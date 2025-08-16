@@ -1,147 +1,14 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <conio.h>
-#include <ctime>
-#include <windows.h>
-#include "StructsAndConstants.h" // Include the header file for constants and structs
-using namespace std;
+#include "Game.h"
 
 
 
-
-
-
-
-class Snake {
-    public:
-    vector<pair<int,int>> body; // Snake body represented as a list of coordinates
-    int direction;// Current direction of the snake
-    int length;// Length of the snake
-    Snake(int startX,int startY,int initialLength) : direction(RIGHT), length(initialLength)
-    {
-        for(int i=0; i< initialLength;i++)
-        {
-            body.push_back(make_pair(startX, startY - i)); // Initialize snake vertically
-        }
-    } 
-    void move()// Move the snake in the current direction
-    {
-        pair<int,int> head = body.front();
-        switch(direction) {
-            case UP:
-                head.first--;
-                break;
-            case RIGHT:
-                head.second++;
-                break;
-            case DOWN:
-                head.first++;
-                break;
-            case LEFT:
-                head.second--;
-                break;
-        }
-        for(int i = body.size() - 1; i > 0; i--) {
-            body[i] = body[i - 1]; // Move the body segments
-        }
-        body[0] = head; // Update the head position
-    }
-    void changeDirection(int newDirection) {
-        // Prevent the snake from reversing direction
-        if ((direction == UP && newDirection != DOWN) ||
-            (direction == DOWN && newDirection != UP) ||
-            (direction == LEFT && newDirection != RIGHT) ||
-            (direction == RIGHT && newDirection != LEFT)) {
-            direction = newDirection;
-        }
-    }
-    void grow() {
-        length++;
-        body.push_back(body.back()); // Add a new segment at the tail
-    }
-
-};
-
-class Grid
-{
-    public:
-    int rows;
-    int cols;// Number of rows and columns in the grid
-    pair<int,int> foodPosition;// Position of the food
-    vector<vector<int>> cells;
-    Grid(int rows, int cols) : rows(rows), cols(cols)
-    {
-        cells = vector<vector<int>>(rows, vector<int>(cols, 0));
-    }
-    void draw() {// Draw the grid
-        for(int i = 0; i <rows;i++)
-        {
-            for(int j =0; j< cols;j++)
-            {
-                if(cells[i][j] == EMPTY)
-                    cout << ".";
-                else if(cells[i][j] == SNAKE)
-                    cout << "S"; // Snake
-                else if(cells[i][j] == FOOD)
-                    cout << "F"; // Food
-                else
-                    cout << "X"; // Obstacle
-            }
-            cout << endl;
-        }
-    }
-    void reset()// Reset the grid to empty state
-    {
-        for(int i = 0; i <rows;i++)
-        {
-            for(int j =0; j< cols;j++)
-            {
-                cells[i][j] = 0;
-            }
-        }
-    }
-    void placeSnake(const Snake& snake) {// Place the snake on the grid
-        for (const auto& segment : snake.body) {
-            cells[segment.first][segment.second] = SNAKE;
-        }
-    }
-    void placeFood()// Place food in a random empty cell
-    {
-        int x = rand() % rows;
-        int y = rand() % cols;
-        while (cells[x][y] != EMPTY) { // Ensure food is placed in an empty cell
-            x = rand() % rows;
-            y = rand() % cols;
-        }
-        foodPosition = make_pair(x, y);
-        cells[x][y] = FOOD; // Place food
-
-    }
-    void restoreFood()// Restore food position after clearing the grid
-    {
-        cells[foodPosition.first][foodPosition.second] = FOOD; // Restore food
-    }
-};
-
-
-
-class Game
-{
-    public:
-    int score;
-    int state; // 0: menu, 1: game, 2: game over
-    int foodEaten;
-    bool render;
-    bool isAI;
-    Snake snake;
-    Grid grid;
-    Game(int gridRows, int gridCols, int startX, int startY, int initialLength) 
+    
+    Game::Game(int gridRows, int gridCols, int startX, int startY, int initialLength) 
         :state(MENU),snake(startX, startY, initialLength), grid(gridRows, gridCols),render(false),isAI(false) {}
 
         //---game functions---
     
-    void initilizeGrid() {// Initialize the grid and place the snake and food to start the game
+    void Game::initilizeGrid() {// Initialize the grid and place the snake and food to start the game
         grid.reset();
         grid.placeSnake(snake);
         grid.placeFood();
@@ -152,19 +19,19 @@ class Game
     }
 
     
-    void toggleRender() {// Toggle rendering on or off
+    void Game::toggleRender() {// Toggle rendering on or off
         if(_kbhit()){
            char input = _getch();
         if (input == 'r' || input == 'R') // Check if 'r' or 'R' is pressed 
         render = !render; // Toggle rendering
         }
     }
-    bool isFoodEaten()// Check if food is eaten
+    bool Game::isFoodEaten()// Check if food is eaten
     {
         return grid.cells[snake.body.front().first][snake.body.front().second] == FOOD;
     }
 
-    bool isGameOver()// Check if the game is over
+    bool Game::isGameOver()// Check if the game is over
     {
         pair<int,int> head = snake.body.front();
         // Check if the snake collides with itself or the walls
@@ -179,7 +46,7 @@ class Game
         return false; // No collision
     }
 
-    bool isGameWon()// Check if the game is won
+    bool Game::isGameWon()// Check if the game is won
     {
         for(int i = 0; i < grid.rows; i++) {
             for(int j = 0; j < grid.cols; j++) {
@@ -192,7 +59,7 @@ class Game
     }
 
     //--template functions for player and AI game functions--
-float getDistanceForward()// Get distance to danger ahead
+float Game::getDistanceForward()// Get distance to danger ahead
     {
         pair<int,int> head = snake.body.front();
         int dr=0, dc=0;
@@ -223,7 +90,7 @@ float getDistanceForward()// Get distance to danger ahead
         }
         return dist / float((dr!= 0) ? grid.rows : grid.cols); // Normalize distance
     }
-    float getDistanceLeft()// Get distance to danger on the left
+    float Game::getDistanceLeft()// Get distance to danger on the left
     {
         pair<int,int> head = snake.body.front();
         int dr=0, dc=0;
@@ -254,7 +121,7 @@ float getDistanceForward()// Get distance to danger ahead
         }
         return dist / float((dr!= 0) ? grid.rows : grid.cols); // Normalize distance
     }
-    float getDistanceRight()// Get distance to danger on the right
+    float Game::getDistanceRight()// Get distance to danger on the right
     {
         pair<int,int> head = snake.body.front();
         int dr=0, dc=0;
@@ -286,18 +153,18 @@ float getDistanceForward()// Get distance to danger ahead
         return dist / float((dr!= 0) ? grid.rows : grid.cols); // Normalize distance
     }
 
-    float GetDistanceToFoodX()// Get distance to food in x direction
+    float Game::GetDistanceToFoodX()// Get distance to food in x direction
     {
-        return float(snake.body.front().first - grid.foodPosition.first) / float(grid.cols);
+        return float(snake.body.front().second - grid.foodPosition.second) / float(grid.cols);
     }
-    float GetDistanceToFoodY()// Get distance to food in y direction
+    float Game::GetDistanceToFoodY()// Get distance to food in y direction
     {
-        return float(snake.body.front().second - grid.foodPosition.second) / float(grid.rows);
+        return float(snake.body.front().first - grid.foodPosition.first) / float(grid.rows);
     }
     //---player game functions---
 
     
-    void inputHandler() {
+    void Game::inputHandler() {
         if(_kbhit()){
             char input = _getch(); // Get user input
             switch(input) {
@@ -317,7 +184,7 @@ float getDistanceForward()// Get distance to danger ahead
         }
     }
 
-    void update()
+    void Game::update()
     {
 
         snake.move(); // Move the snake
@@ -344,8 +211,18 @@ float getDistanceForward()// Get distance to danger ahead
         grid.placeSnake(snake); // Place the snake on the grid
     }
 
+    void Game::showStats() {
+        cout << "Score: " << score << endl; // Display the score
+        cout << "Distance to food (X): " << GetDistanceToFoodX() << endl; // Display distance to food in x direction
+        cout << "Distance to food (Y): " << GetDistanceToFoodY() << endl;
+        cout << "Distance to danger forward: " << getDistanceForward() << endl; // Display distance to danger ahead
+        cout << "Distance to danger left: " << getDistanceLeft() << endl; // Display distance to danger on the left
+        cout << "Distance to danger right: " << getDistanceRight() << endl; // Display distance to danger on the right
+        cout << "Current direction: " << snake.direction << endl; // Display current direction of the snake
+    }
 
-    void playerGame()
+
+    void Game::playerGame()
     {
         if(state == MENU)
         {
@@ -358,18 +235,10 @@ float getDistanceForward()// Get distance to danger ahead
         while(state == PLAYING)
         {
             system("cls"); // Clear the console
-            cout << "Score: " << score << endl;// Display the score
-            cout<< "Distance to food (X): " << GetDistanceToFoodX() << endl; // Display distance to food in x direction
-            cout<< "Distance to food (Y): " << GetDistanceToFoodY() << endl;
-            cout << "Distance to danger forward: " << getDistanceForward() << endl; // Display distance to danger ahead
-            cout << "Distance to danger left: " << getDistanceLeft() << endl; // Display distance to danger on the left
-            cout << "Distance to danger right: " << getDistanceRight() << endl; //
-            
+            showStats(); // Show game stats
             inputHandler();// Handle user input for snake direction
             update();// Update the game state
-
             grid.draw(); // Draw the grid
-            
             Sleep(SNAKE_SPEED); // Sleep for 200 milliseconds
 
         }
@@ -393,7 +262,7 @@ float getDistanceForward()// Get distance to danger ahead
 
     
     
-    void AIInputHandler(int action)// Handle AI input based on action
+    void Game::AIInputHandler(int action)// Handle AI input based on action
     {
         switch(action) {
             case 0: // UP
@@ -413,7 +282,7 @@ float getDistanceForward()// Get distance to danger ahead
 
     
 
-    stepResult step(int action)
+    stepResult Game::step(int action)
     {
         stepResult result;
         result.reward = 0.0f; // Initialize reward
@@ -459,13 +328,7 @@ float getDistanceForward()// Get distance to danger ahead
             
             if(render) {
                 system("cls"); // Clear the console
-                cout << "Score: " << score << endl; // Display the score
-                cout << "Distance to food (X): " << result.distFoodX << endl; // Display distance to food in x direction
-                cout << "Distance to food (Y): " << result.distFoodY << endl;
-                cout << "Distance to danger forward: " << result.distToDangerForward << endl; // Display distance to danger ahead
-                cout << "Distance to danger left: " << result.distToDangerLeft << endl;
-                cout << "Distance to danger right: " << result.distToDangerRight << endl; // Display distance to danger on the right
-                cout << "Current direction: " << result.direction << endl; // Display current direction of the snake
+                showStats(); // Show game stats
                 Sleep(SNAKE_SPEED); // Sleep for snake speed
                 grid.draw(); // Draw the grid
                 
@@ -474,39 +337,5 @@ float getDistanceForward()// Get distance to danger ahead
             
         
     }
-    
-    void run()
-    {
-        
-        playerGame(); // Start the player game
-        
-    }
         
     
-};
-
-
-
-int main()
-{
-    Game game(GRID_SIZE, GRID_SIZE, GRID_SIZE / 2, GRID_SIZE / 2, INITIAL_SNAKE_LENGTH);
-    game.initilizeGrid(); // Start the game (remove later we dont need to draw the grid at the start for AI)
-
-    //make option for player or ai after the model is finished
-    game.state = PLAYING; // Set game state to playing
-    int count =0;
-    while (game.state == PLAYING)
-    {
-        game.toggleRender(); // Toggle rendering on or off
-        count++;
-
-        int action = count % 4; // Example action for AI (0: UP, 1: RIGHT, 2: DOWN, 3: LEFT)
-        stepResult result = game.step(action); // Get step result
-
-
-        //return result to model
-    }
-
-    return 0; // Exit the program
-
-}
