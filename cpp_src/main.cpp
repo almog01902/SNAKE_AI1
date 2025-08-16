@@ -10,32 +10,31 @@
 #include "Game.h" // Include the game class header
 using namespace std;
 
-
-
-
-
-
-
-
-int main()
-{
+// Main function to start the game
+void startGameForAI() {
     Game game(GRID_SIZE, GRID_SIZE, GRID_SIZE / 2, GRID_SIZE / 2, INITIAL_SNAKE_LENGTH);
     game.initilizeGrid(); // Start the game (remove later we dont need to draw the grid at the start for AI)
 
     //make option for player or ai after the model is finished
     game.state = PLAYING; // Set game state to playing
-    int count =0;
-    while (game.state == PLAYING)
-    {
+    int count = 0; // Initialize count for AI actions
+    while (game.state == PLAYING) {
         game.toggleRender(); // Toggle rendering on or off
         count++;
-
-        int action = count % 4; // Example action for AI (0: UP, 1: RIGHT, 2: DOWN, 3: LEFT)
+        int action = count %4; // Example action for AI (0: UP, 1: RIGHT, 2: DOWN, 3: LEFT)
         stepResult result = game.step(action); // Get step result
-
-
-        //return result to model
     }
+}
+
+void startGameForPlayer() {
+    Game game(GRID_SIZE, GRID_SIZE, GRID_SIZE / 2, GRID_SIZE / 2, INITIAL_SNAKE_LENGTH);
+    game.playerGame(); // Start player game mode
+}
+
+
+int main()
+{
+    startGameForAI(); // Start the game for AI
 
     return 0; // Exit the program
 

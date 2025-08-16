@@ -1,4 +1,5 @@
 #include "Game.h"
+#include <cmath> // For fabs function
 
 
 
@@ -10,8 +11,8 @@
     
     void Game::initilizeGrid() {// Initialize the grid and place the snake and food to start the game
         grid.reset();
-        grid.placeSnake(snake);
         grid.placeFood();
+        grid.update(snake); // Update the grid with the snake's position and food
         grid.draw();
         score = 0;
         foodEaten = 0;
@@ -188,7 +189,6 @@ float Game::getDistanceForward()// Get distance to danger ahead
     {
 
         snake.move(); // Move the snake
-
         if (isGameOver()) {
             state = GAMEOVER; // Change state to game over
             return; // Exit update function
@@ -197,18 +197,13 @@ float Game::getDistanceForward()// Get distance to danger ahead
             state = GAMEWON; // Change state to game won
             return; // Exit update function
         }
-
         if (isFoodEaten()) { // Check if food is eaten
             snake.grow(); // Grow the snake
             score += 10; // Increase score
             foodEaten++;
             grid.placeFood(); // Place new food
         }
-
-        
-        grid.reset(); // Reset the grid
-        grid.restoreFood(); // Restore food position
-        grid.placeSnake(snake); // Place the snake on the grid
+        grid.update(snake); // Update the grid with the snake's position and food
     }
 
     void Game::showStats() {
@@ -265,16 +260,16 @@ float Game::getDistanceForward()// Get distance to danger ahead
     void Game::AIInputHandler(int action)// Handle AI input based on action
     {
         switch(action) {
-            case 0: // UP
+            case UP: // UP
                 snake.changeDirection(UP);
                 break;
-            case 1: // RIGHT
+            case RIGHT: // RIGHT
                 snake.changeDirection(RIGHT);
                 break;
-            case 2: // DOWN
+            case DOWN: // DOWN
                 snake.changeDirection(DOWN);
                 break;
-            case 3: // LEFT
+            case LEFT: // LEFT
                 snake.changeDirection(LEFT);
                 break;
         }
@@ -289,24 +284,27 @@ float Game::getDistanceForward()// Get distance to danger ahead
         result.done = false; // Initialize done state
         result.direction = snake.direction; // Initialize direction
 
-        grid.reset(); // Reset the grid
-        grid.placeSnake(snake); // Place the snake on the grid
         AIInputHandler(action); // Handle AI input based on action
         snake.move(); // Move the snake
+        grid.update(snake); // Update the grid with the snake's position and food
+        
         
         
             if(isGameOver()) {
                 result.done = true; // Set done state to true if game is over
-                result.reward += -100.0f; // Negative reward for game over
+                result.reward = -100.0f; // Negative reward for game over
                 state = GAMEOVER; // Change state to game over
             }
             if(isGameWon()) {
                 result.done = true; // Set done state to true if game is won
-                result.reward += 1000.0f; // Positive reward for game won
+                result.reward = 1000.0f; // Positive reward for game won
                 state = GAMEWON; // Change state to game won
             }
-            result.distFoodX = GetDistanceToFoodX(); // Get distance to food in x direction
-            result.distFoodY = GetDistanceToFoodY(); // Get distance to food in y
+            // Calculate distances and rewards
+            float distFoodX = GetDistanceToFoodX(); // Get distance to food in x direction
+            float distFoodY = GetDistanceToFoodY(); // Get distance to food in y direction
+            result.distFoodX = distFoodX; // Get distance to food in x direction
+            result.distFoodY = distFoodY; // Get distance to food in y
             result.distToDangerForward = getDistanceForward();
             result.distToDangerLeft = getDistanceLeft();
             result.distToDangerRight = getDistanceRight();
@@ -315,20 +313,18 @@ float Game::getDistanceForward()// Get distance to danger ahead
                 score += 10; // Increase score
                 foodEaten++;
                 grid.placeFood(); // Place new food
-                result.reward += 10.0f; // Positive reward for eating food
+                result.reward = 10.0f; // Positive reward for eating food
             }
             else
             {
-                result.reward += -0.01f; // Negative reward for not eating food
+                result.reward = -(fabs(distFoodX) + fabs(distFoodY)); // Negative reward for not eating food
             }
-            
-            grid.reset(); // Reset the grid
-            grid.restoreFood(); // Restore food position
-            grid.placeSnake(snake); // Place the snake on the grid
             
             if(render) {
                 system("cls"); // Clear the console
                 showStats(); // Show game stats
+                cout << "Action: " << action << endl; // Show action taken by AI
+                cout << "Reward: " << result.reward << endl; // Show reward for the action
                 Sleep(SNAKE_SPEED); // Sleep for snake speed
                 grid.draw(); // Draw the grid
                 

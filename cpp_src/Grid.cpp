@@ -24,7 +24,25 @@
             cout << endl;
         }
     }
+    
+    void Grid::placeSnake(const Snake& snake) {// Place the snake on the grid
+        for (const auto& segment : snake.body) {
+            cells[segment.first][segment.second] = SNAKE;
+        }
+    }
+
     void Grid::reset()// Reset the grid to empty state
+    {
+        for(int i = 0; i <rows;i++)
+        {
+            for(int j =0; j< cols;j++)
+            {
+                cells[i][j] = EMPTY; // Set all cells to empty
+            }
+        }
+    }
+
+    void Grid::update(const Snake& snake)// update the grid with the snake's position and food
     {
         for(int i = 0; i <rows;i++)
         {
@@ -33,11 +51,9 @@
                 cells[i][j] = 0;
             }
         }
-    }
-    void Grid::placeSnake(const Snake& snake) {// Place the snake on the grid
-        for (const auto& segment : snake.body) {
-            cells[segment.first][segment.second] = SNAKE;
-        }
+
+        cells[foodPosition.first][foodPosition.second] = FOOD; // Restore food
+        placeSnake(snake); // Place the snake on the grid
     }
     void Grid::placeFood()// Place food in a random empty cell
     {
@@ -50,8 +66,4 @@
         foodPosition = make_pair(x, y);
         cells[x][y] = FOOD; // Place food
 
-    }
-    void Grid::restoreFood()// Restore food position after clearing the grid
-    {
-        cells[foodPosition.first][foodPosition.second] = FOOD; // Restore food
     }
