@@ -3,7 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
-                "${default}"
+                "${default}",
+                "D:\\snake_python_lib\\Python312\\Lib\\site-packages\\pybind11\\include",
+                "D:\\snake_python_lib\\Python312\\include"
             ],
             "defines": [
                 "_DEBUG",
