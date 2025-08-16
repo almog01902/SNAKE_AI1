@@ -1,6 +1,3 @@
-#ifdef _WIN32
-#define strdup _strdup
-#endif
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <cstring> 
@@ -29,9 +26,12 @@ PYBIND11_MODULE(snake_module,m){
         return game.step(action); // Call the step function with the action
 
     });
+    m.def("toggle_render", []() {
+        game.toggleRender(); // Toggle rendering on or off
+    });
 }
 
 
 
-//g++ -O3 -Wall -shared -std=c++17 -I"D:/snake_python_lib/Python312/include" -I"D:/snake_python_lib/Python312/Lib/site-packages/pybind11/include" cpp_src\snake_binding.cpp cpp_src\snake.cpp cpp_src\game.cpp cpp_src\grid.cpp -L"D:/snake_python_lib/Python312/libs" -lpython312 -o snake_module.pyd -static-libgcc -static-libstdc++
-// Compile command for Windows with pybind11 and Python 3.12
+//cl /O2 /LD /EHsc /I"D:\snake_python_lib\Python312\include" /I"D:\snake_python_lib\Python312\Lib\site-packages\pybind11\include" snake_binding.cpp snake.cpp game.cpp grid.cpp /link /LIBPATH:"D:\snake_python_lib\Python312\libs" python312.lib /OUT:snake_module.pyd
+//compiled with visual studio cl without it the moudle will not work
