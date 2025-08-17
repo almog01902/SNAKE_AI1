@@ -19,7 +19,7 @@ void startGameForAI() {
     game.state = PLAYING; // Set game state to playing
     int count = 0; // Initialize count for AI actions
     while (game.state == PLAYING) {
-        game.toggleRender(); // Toggle rendering on or off
+        game.render();
         count++;
         int action = count %4; // Example action for AI (0: UP, 1: RIGHT, 2: DOWN, 3: LEFT)
         stepResult result = game.step(action); // Get step result
@@ -34,8 +34,11 @@ void startGameForPlayer() {
 
 int main()
 {
-    startGameForAI(); // Start the game for AI
+    startGameForPlayer();
 
     return 0; // Exit the program
 
 }
+
+//g++ .\cpp_src\main.cpp .\cpp_src\snake.cpp .\cpp_src\game.cpp .\cpp_src\grid.cpp -o game.exe
+// Compile command for Windows

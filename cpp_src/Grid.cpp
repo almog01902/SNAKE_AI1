@@ -3,10 +3,17 @@
 
 
 
-    Grid::Grid(int rows, int cols) : rows(rows), cols(cols)
+    Grid::Grid(int rows, int cols) : rows(rows), cols(cols)// Initialize the grid with given rows and columns
     {
         cells = vector<vector<int>>(rows, vector<int>(cols, 0));
+        std::random_device rd; // Random device for seeding
+        gen = std::mt19937(rd()); // Initialize random number generator with a random seed
+        randX = std::uniform_int_distribution<>(0, rows - 1); // Distribution for x coordinate
+        randY = std::uniform_int_distribution<>(0, cols - 1); // Distribution        
+        
     }
+
+    
     void Grid::draw() {// Draw the grid
         for(int i = 0; i <rows;i++)
         {
@@ -28,6 +35,7 @@
     void Grid::placeSnake(const Snake& snake) {// Place the snake on the grid
         for (const auto& segment : snake.body) {
             cells[segment.first][segment.second] = SNAKE;
+            
         }
     }
 
@@ -57,11 +65,11 @@
     }
     void Grid::placeFood()// Place food in a random empty cell
     {
-        int x = rand() % rows;
-        int y = rand() % cols;
+        int x = randX(gen);
+        int y = randY(gen);
         while (cells[x][y] != EMPTY) { // Ensure food is placed in an empty cell
-            x = rand() % rows;
-            y = rand() % cols;
+            x = randX(gen);
+            y = randY(gen);
         }
         foodPosition = make_pair(x, y);
         cells[x][y] = FOOD; // Place food

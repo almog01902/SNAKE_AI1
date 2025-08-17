@@ -17,7 +17,6 @@ class Game
     int score;
     int state; // 0: menu, 1: game, 2: game over
     int foodEaten;
-    bool render;
     bool isAI;
     Snake snake;
     Grid grid;
@@ -48,9 +47,11 @@ class Game
     float getDistanceRight(); // Get distance to danger on the right
     void AIInputHandler(int action); // Handle AI input based on action
     stepResult step(int action); // Perform a game step based on the action
+    int testRandom();
 
     //---debug functions---
     void showStats(); // Show game stats (score, distances, etc.)
+    void render();
 };
 
 #endif // Game_H

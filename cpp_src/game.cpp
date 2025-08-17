@@ -5,7 +5,7 @@
 
     
     Game::Game(int gridRows, int gridCols, int startX, int startY, int initialLength) 
-        :state(MENU),snake(startX, startY, initialLength), grid(gridRows, gridCols),render(false),isAI(false) {}
+        :state(MENU),snake(startX, startY, initialLength), grid(gridRows, gridCols),isAI(false) {}
 
         //---game functions---
     
@@ -20,16 +20,10 @@
     }
 
     
-    void Game::toggleRender() {// Toggle rendering on or off
-        if(_kbhit()){
-           char input = _getch();
-        if (input == 'r' || input == 'R') // Check if 'r' or 'R' is pressed 
-        render = !render; // Toggle rendering
-        }
-    }
+
     bool Game::isFoodEaten()// Check if food is eaten
     {
-        return grid.cells[snake.body.front().first][snake.body.front().second] == FOOD;
+        return snake.body.front() == grid.foodPosition; // Check if the snake's head is at the food position
     }
 
     bool Game::isGameOver()// Check if the game is over
@@ -277,13 +271,14 @@ float Game::getDistanceForward()// Get distance to danger ahead
 
     
 
-    stepResult Game::step(int action)
+    stepResult Game::step(int action) // Perform a game step based on the action
     {
         stepResult result;
         result.reward = 0.0f; // Initialize reward
         result.done = false; // Initialize done state
         result.direction = snake.direction; // Initialize direction
 
+        
         AIInputHandler(action); // Handle AI input based on action
         snake.move(); // Move the snake
         grid.update(snake); // Update the grid with the snake's position and food
@@ -312,7 +307,7 @@ float Game::getDistanceForward()// Get distance to danger ahead
                 snake.grow(); // Grow the snake if food is eaten
                 score += 10; // Increase score
                 foodEaten++;
-                grid.placeFood(); // Place new food
+                grid.placeFood();// Place new food
                 result.reward = 10.0f; // Positive reward for eating food
             }
             else
@@ -320,18 +315,17 @@ float Game::getDistanceForward()// Get distance to danger ahead
                 result.reward = -(fabs(distFoodX) + fabs(distFoodY)); // Negative reward for not eating food
             }
             
-            if(render) {
-                system("cls"); // Clear the console
-                showStats(); // Show game stats
-                cout << "Action: " << action << endl; // Show action taken by AI
-                cout << "Reward: " << result.reward << endl; // Show reward for the action
-                Sleep(SNAKE_SPEED); // Sleep for snake speed
-                grid.draw(); // Draw the grid
-                
-            }
             return result; // Return the step result
             
         
+    }
+
+    void Game::render()
+    {
+        system("cls"); // Clear the console
+        showStats(); // Show game stats
+        Sleep(SNAKE_SPEED); // Sleep for snake speed
+        grid.draw(); // Draw the grid
     }
         
     
