@@ -13,13 +13,10 @@
         grid.reset();
         grid.placeFood();
         grid.update(snake); // Update the grid with the snake's position and food
-        grid.draw();
         score = 0;
         foodEaten = 0;
         state = PLAYING;
     }
-
-    
 
     bool Game::isFoodEaten()// Check if food is eaten
     {

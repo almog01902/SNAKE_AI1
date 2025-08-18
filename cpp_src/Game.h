@@ -26,7 +26,6 @@ class Game
         //---game functions---
     
     void initilizeGrid(); // Initialize the grid and place the snake and food to start the game
-    void toggleRender(); // Toggle rendering on or off
     bool isFoodEaten(); // Check if food is eaten
     bool isGameOver(); // Check if the game is over
     bool isGameWon(); // Check if the game is won
