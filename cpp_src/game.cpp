@@ -14,7 +14,7 @@
         grid.placeFood();
         grid.update(snake); // Update the grid with the snake's position and food
         score = 0;
-        foodEaten = 0;
+        foodEaten =0;
         state = PLAYING;
     }
 
@@ -27,7 +27,7 @@
     {
         pair<int,int> head = snake.body.front();
         // Check if the snake collides with itself or the walls
-        if (head.first < 0 || head.first >= grid.rows || head.second < 0 || head.second >= grid.cols) {
+        if (head.first < 0 || head.first >= grid.cols || head.second < 0 || head.second >= grid.rows) {
             return true; // Collision with walls
         }
         for (size_t i = 1; i < snake.body.size(); i++) {
@@ -268,54 +268,83 @@ float Game::getDistanceForward()// Get distance to danger ahead
 
     
 
-    stepResult Game::step(int action) // Perform a game step based on the action
+    stepResult Game::step(int action)
     {
+        static float prevDist =0.0f;
         stepResult result;
-        result.reward = 0.0f; // Initialize reward
-        result.done = false; // Initialize done state
-        result.direction = snake.direction; // Initialize direction
+        result.reward = 0.0f;
+        result.done = false;
+        result.won = false;
+        result.direction = snake.direction;
 
+        // טיפול בפעולה של הסוכן
+        AIInputHandler(action);
+
+        // הזזת הנחש ועדכון הלוח
+        snake.move();
         
-        AIInputHandler(action); // Handle AI input based on action
-        snake.move(); // Move the snake
-        grid.update(snake); // Update the grid with the snake's position and food
-        
-        
-        
-            if(isGameOver()) {
-                result.done = true; // Set done state to true if game is over
-                result.reward = -100.0f; // Negative reward for game over
-                state = GAMEOVER; // Change state to game over
-            }
-            if(isGameWon()) {
-                result.done = true; // Set done state to true if game is won
-                result.reward = 1000.0f; // Positive reward for game won
-                state = GAMEWON; // Change state to game won
-            }
-            // Calculate distances and rewards
-            float distFoodX = GetDistanceToFoodX(); // Get distance to food in x direction
-            float distFoodY = GetDistanceToFoodY(); // Get distance to food in y direction
-            result.distFoodX = distFoodX; // Get distance to food in x direction
-            result.distFoodY = distFoodY; // Get distance to food in y
-            result.distToDangerForward = getDistanceForward();
-            result.distToDangerLeft = getDistanceLeft();
-            result.distToDangerRight = getDistanceRight();
-            if(isFoodEaten()) {
-                snake.grow(); // Grow the snake if food is eaten
-                score += 10; // Increase score
-                foodEaten++;
-                grid.placeFood();// Place new food
-                result.reward = 10.0f; // Positive reward for eating food
-            }
-            else
+
+        // בדיקה אם המשחק נגמר או נצח
+        if(isGameOver()) {
+            result.done = true;
+            result.reward = -200.0f;
+            state = GAMEOVER;
+            result.foodEaten = foodEaten;
+            return result;  // מיד מחזירים, אין חישוב נוסף
+        }
+        if(isGameWon()) {
+            result.done = true;
+            result.won = true;
+            result.reward = 1000.0f;
+            result.foodEaten = foodEaten;
+            state = GAMEWON;
+            return result;  // מיד מחזירים
+        }
+
+        // חישוב מרחקים לאוכל
+        float distFoodX = GetDistanceToFoodX();
+        float distFoodY = GetDistanceToFoodY();
+        float newDist = fabs(distFoodX) + fabs(distFoodY);
+
+        result.distFoodX = distFoodX;
+        result.distFoodY = distFoodY;
+
+        // מרחק מהסכנה
+        result.distToDangerForward = getDistanceForward();
+        result.distToDangerLeft = getDistanceLeft();
+        result.distToDangerRight = getDistanceRight();
+
+        if(isFoodEaten()) {
+            snake.grow();        
+            foodEaten++;     
+            grid.placeFood();  
+            result.reward = 100.0f;  
+            prevDist = 0.0f;
+        }
+        else {
+            result.reward = -0.01f;
+
+            if(newDist < prevDist)
             {
-                result.reward = -(fabs(distFoodX) + fabs(distFoodY)); // Negative reward for not eating food
+                result.reward +=0.1f;
+            }
+            else if (newDist > prevDist)
+            {
+                result.reward -=0.1f;
             }
             
-            return result; // Return the step result
-            
-        
+
+            prevDist = newDist;
+        }
+
+       
+        // עדכון הכיוון האחרון
+        result.direction = snake.direction;
+        grid.update(snake);
+
+        return result;
     }
+
 
     void Game::render()
     {

@@ -6,6 +6,7 @@
 #include <utility> // For std::pair
 #include <conio.h> // For _getch()
 #include <windows.h> // For Sleep()
+#include <tuple>
 #include "StructsAndConstants.h" // Include the header file for constants and structs
 #include "Snake.h" // Include the snake class header
 #include "Grid.h" // Include the grid class header

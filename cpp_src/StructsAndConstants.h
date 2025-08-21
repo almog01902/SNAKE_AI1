@@ -19,7 +19,10 @@ struct stepResult//for ai agent
     float distToDangerLeft;// Whether there is danger to the left
     float distToDangerRight; // Whether there is danger to the left or right
     int direction; // Current direction of the snake
+    int foodEaten; //number of food eaten
+    bool won;
 
 };
+
 
 #endif // STRUCTS_AND_CONSTANTS_H

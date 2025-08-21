@@ -10,6 +10,8 @@ class stepResult:
     distToDangerLeft: int
     distToDangerRight: int
     direction: int
+    foodEaten: int
+    won: bool
 
 class Game:
     def __init__(self, gridRows: int, gridCols: int, startX: int, startY: int, initialLength: int) -> None: ...
