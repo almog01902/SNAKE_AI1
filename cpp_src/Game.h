@@ -19,6 +19,7 @@ class Game
     int state; // 0: menu, 1: game, 2: game over
     int foodEaten;
     bool isAI;
+    float minDistTOFood;
     Snake snake;
     Grid grid;
 
@@ -48,10 +49,14 @@ class Game
     void AIInputHandler(int action); // Handle AI input based on action
     stepResult step(int action); // Perform a game step based on the action
     int testRandom();
+    int getSankeLen();
 
     //---debug functions---
     void showStats(); // Show game stats (score, distances, etc.)
     void render();
+
+    //get functions
+    vector<vector<int>> getGrid();
 };
 
 #endif // Game_H

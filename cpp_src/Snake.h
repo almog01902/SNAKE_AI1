@@ -15,6 +15,7 @@ class Snake {
     void move(); // Move the snake in the current direction
     void changeDirection(int newDirection); // Change the direction of the snake
     void grow(); // Grow the snake by adding a new segment at the tail
+    int getSnakeLen();
 };
 
 #endif // SNAKE_H

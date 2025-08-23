@@ -21,13 +21,16 @@ PYBIND11_MODULE(snake_module,m){
         .def_readwrite("distToDangerRight", &stepResult::distToDangerRight)
         .def_readwrite("direction", &stepResult::direction)
         .def_readwrite("foodEaten", &stepResult::foodEaten)
-        .def_readwrite("won",&stepResult::won);
+        .def_readwrite("won",&stepResult::won)
+        .def_readwrite("snakeLen",&stepResult::snakeLen);
 
     py::class_<Game>(m, "Game")
         .def(py::init<int, int, int, int, int>(), py::arg("gridRows"), py::arg("gridCols"), py::arg("startX"), py::arg("startY"), py::arg("initialLength"))
         .def("step", &Game::step)
         .def("InitilizeGrid", &Game::initilizeGrid)
-        .def("render",&Game::render);
+        .def("render",&Game::render)
+        .def("getGrid",&Game::getGrid);
+        
 }
 
 

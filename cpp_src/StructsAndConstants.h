@@ -21,6 +21,7 @@ struct stepResult//for ai agent
     int direction; // Current direction of the snake
     int foodEaten; //number of food eaten
     bool won;
+    int snakeLen;
 
 };
 

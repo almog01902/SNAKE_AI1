@@ -45,4 +45,9 @@
         length++;
         body.push_back(body.back()); // Add a new segment at the tail
     }
+    int  Snake::getSnakeLen()
+    {
+        return length;
+    }
+    
 

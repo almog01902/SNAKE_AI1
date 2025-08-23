@@ -12,6 +12,7 @@ class stepResult:
     direction: int
     foodEaten: int
     won: bool
+    snakeLen:int
 
 class Game:
     def __init__(self, gridRows: int, gridCols: int, startX: int, startY: int, initialLength: int) -> None: ...
@@ -23,5 +24,7 @@ class Game:
     def InitilizeGrid(self) -> None: ...
 
     def render(self) -> None: ...
+
+    def getGrid(self) -> list[list[int]]:...
     
     # Additional methods can be added here if needed

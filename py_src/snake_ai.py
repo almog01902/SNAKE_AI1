@@ -22,16 +22,19 @@ paths = prepare_checkpoint_paths()#preare pathes for chackpoints load
 episode_rewards =[]
 policy, critic, optimizer = make_models(STATE_DIM,ACTION_DIM,LR,device)#make models
 load_checkpoints(policy,critic,optimizer,episode_rewards,paths)#load chackpoints
-
 #graph to show progress
-plotter = RewardPlotter()
-#window to show agents play
+if GRAPH:
+    plotter = RewardPlotter()
+    plotter.rewards = episode_rewards
+
+rewards_to_save = episode_rewards
+
 
 
 
 
 # rollout
-for episode in range(NUM_EPISODES):
+for episode in range(1):
     print("Episode:", episode)
 
     # make agents
@@ -42,11 +45,21 @@ for episode in range(NUM_EPISODES):
     for agent in agents:
         agent.InitilizeGrid()
 
+    #window to show agents play
+    if(VISUALIZER):
+        renderer = AgentRenderer(agents)
+    
+    
+    #update graphes
+
+    #data of agents
     last_actions = [1 for _ in range(NUM_AGENTS)]  # start going right
     done_flags = [False for _ in range(NUM_AGENTS)]
     won_flags = [False for _ in range(NUM_AGENTS)]
+    #data to see progress
     ep_rewards = torch.zeros(NUM_AGENTS)
     ep_food = torch.zeros(NUM_AGENTS,dtype=torch.int32)
+    ep_len = torch.zeros(NUM_AGENTS,dtype=torch.int32)
 
     # buffers
     all_log_probs = []
@@ -55,10 +68,14 @@ for episode in range(NUM_EPISODES):
     all_dones = []
 
     while not all(done_flags):
+        #buffer for step
         step_log_probs = []
         step_values = []
         step_rewards = []
         step_dones = []
+
+        if(VISUALIZER):
+            renderer.update()
 
         for i, agent in enumerate(agents):
 
@@ -70,9 +87,9 @@ for episode in range(NUM_EPISODES):
                 step_values.append(torch.tensor(0.0,dtype=torch.float32,device = device))
                 continue
 
-            result = agent.step(last_actions[i])
+            result = agent.step(last_actions[i])#get result from action
 
-            state = torch.tensor(
+            state = torch.tensor(#result tensor
                 [
                     result.distFoodX,
                     result.distFoodY,
@@ -85,7 +102,7 @@ for episode in range(NUM_EPISODES):
                 device= device,
             ).unsqueeze(0)
 
-
+            #get prob and value and action for next step
             action_probs = policy(state)
             value = critic(state)
             dist = Categorical(action_probs)
@@ -98,11 +115,15 @@ for episode in range(NUM_EPISODES):
             step_rewards.append(torch.tensor(result.reward, dtype=torch.float32,device=device))
             step_dones.append(torch.tensor(float(result.done),device=device))
 
+            #update reward of player
             ep_rewards[i] += result.reward
+            #get the action of the model
             last_actions[i] = action_t.item()
+            #chack if player finished the game
             if result.done:
                 done_flags[i] = True
                 ep_food[i] = result.foodEaten
+                ep_len[i] = result.snakeLen
                 if result.won:
                     won_flags[i] = True
                 
@@ -139,21 +160,25 @@ for episode in range(NUM_EPISODES):
 
     #gwt avg score
     avg_reward = ep_rewards.mean().item()
-    episode_rewards.append(avg_reward)
     print("avg reward: " ,avg_reward)
-
+    rewards_to_save.append(avg_reward)
     avg_food = int(ep_food.float().mean().item())
     print("avg food eaten :" ,avg_food)
+    max_len = torch.max(ep_len).item()
+    print("max len is :", max_len)
     
 
     #save the learning process
     if episode % SAVE_INTERVAL == 0:
-        save_checkpoints(policy,critic,optimizer,episode_rewards,paths)
+        save_checkpoints(policy,critic,optimizer,rewards_to_save,paths)
 
-    #graph update
-    plotter.update(avg_reward)
+    if(GRAPH):
+        plotter.update(avg_reward)
+    if(VISUALIZER):
+        renderer.close()
 
-plotter.close()
+if(GRAPH):
+    plotter.close()
 
     
 

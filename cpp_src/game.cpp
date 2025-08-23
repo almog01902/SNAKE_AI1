@@ -9,6 +9,7 @@
 
         //---game functions---
     
+
     void Game::initilizeGrid() {// Initialize the grid and place the snake and food to start the game
         grid.reset();
         grid.placeFood();
@@ -16,6 +17,12 @@
         score = 0;
         foodEaten =0;
         state = PLAYING;
+        minDistTOFood = fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
+    }
+
+    vector<vector<int>> Game::getGrid()
+    {
+        return grid.cells;
     }
 
     bool Game::isFoodEaten()// Check if food is eaten
@@ -153,6 +160,8 @@ float Game::getDistanceForward()// Get distance to danger ahead
     {
         return float(snake.body.front().first - grid.foodPosition.first) / float(grid.rows);
     }
+
+
     //---player game functions---
 
     
@@ -270,27 +279,26 @@ float Game::getDistanceForward()// Get distance to danger ahead
 
     stepResult Game::step(int action)
     {
-        static float prevDist =0.0f;
+        
         stepResult result;
         result.reward = 0.0f;
         result.done = false;
         result.won = false;
+        result.snakeLen = snake.getSnakeLen();
+        
+
+        AIInputHandler(action);//get the ai imput
         result.direction = snake.direction;
-
-        // טיפול בפעולה של הסוכן
-        AIInputHandler(action);
-
-        // הזזת הנחש ועדכון הלוח
         snake.move();
         
 
-        // בדיקה אם המשחק נגמר או נצח
+
         if(isGameOver()) {
             result.done = true;
-            result.reward = -200.0f;
+            result.reward = -300.0f;
             state = GAMEOVER;
             result.foodEaten = foodEaten;
-            return result;  // מיד מחזירים, אין חישוב נוסף
+            return result; 
         }
         if(isGameWon()) {
             result.done = true;
@@ -298,18 +306,18 @@ float Game::getDistanceForward()// Get distance to danger ahead
             result.reward = 1000.0f;
             result.foodEaten = foodEaten;
             state = GAMEWON;
-            return result;  // מיד מחזירים
+            return result;  
         }
 
-        // חישוב מרחקים לאוכל
+        //get food distance
         float distFoodX = GetDistanceToFoodX();
         float distFoodY = GetDistanceToFoodY();
-        float newDist = fabs(distFoodX) + fabs(distFoodY);
+        float currDist = fabs(distFoodX) + fabs(distFoodY);
 
         result.distFoodX = distFoodX;
         result.distFoodY = distFoodY;
 
-        // מרחק מהסכנה
+        //get danger dist
         result.distToDangerForward = getDistanceForward();
         result.distToDangerLeft = getDistanceLeft();
         result.distToDangerRight = getDistanceRight();
@@ -318,29 +326,42 @@ float Game::getDistanceForward()// Get distance to danger ahead
             snake.grow();        
             foodEaten++;     
             grid.placeFood();  
-            result.reward = 100.0f;  
-            prevDist = 0.0f;
+            result.reward = 150.0f;  
+            minDistTOFood = fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
         }
-        else {
-            result.reward = -0.01f;
+        else 
+        {
+            float delta = minDistTOFood - currDist;
 
-            if(newDist < prevDist)
-            {
-                result.reward +=0.1f;
+
+            bool correctDir = false;
+            switch(snake.direction) {
+                case RIGHT: correctDir = (distFoodX < 0); break; // צריך להיות שלילי כי foodX > snakeX
+                case LEFT:  correctDir = (distFoodX > 0); break; // צריך להיות חיובי
+                case DOWN:  correctDir = (distFoodY < 0); break; // foodY > snakeY -> למטה
+                case UP:    correctDir = (distFoodY > 0); break; // foodY < snakeY -> למעלה
             }
-            else if (newDist > prevDist)
-            {
-                result.reward -=0.1f;
+
+            // חישוב reward
+            if (delta > 0) {//snake get closer
+                
+                result.reward = correctDir ? delta * 5.0f : delta * 3.0f;
+                // עדכון המרחק המינימלי
+                minDistTOFood = currDist;
+            } 
+            else if (delta < 0) { //if sanke dosent get closer to food
+                
+                result.reward = -fabs(delta) * 5.0f;
+            } 
+            else {
+                //zig-zag
+                result.reward = -1.0f;
             }
+
             
-
-            prevDist = newDist;
         }
 
-       
-        // עדכון הכיוון האחרון
-        result.direction = snake.direction;
-        grid.update(snake);
+        grid.update(snake);//update only after chacking if game over 
 
         return result;
     }
