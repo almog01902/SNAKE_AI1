@@ -1,6 +1,6 @@
 import torch
 #constants
-NUM_AGENTS = 10
+NUM_AGENTS = 32
 GRID_SIZE = 20
 INITIAL_SNAKE_LENGTH =3
 STATE_DIM = 6
@@ -11,15 +11,17 @@ LR = 3e-4
 EPS_CLIPS =0.2
 UPDATE_STEP = 5
 MAX_STEPS = 100
-NUM_EPISODES = 4000
+NUM_EPISODES = 100000
 SAVE_INTERVAL = 10
 CHECKPOINT_DIR = "checkpoints"
 POLICY_FILE = "policy.pth"
 CRITIC_FILE = "critic.pth"
 OPTIMIZER_FILE = "optimizer.pth"
 REWARDS_FILE = "episode_rewards.pkl"
-VISUALIZER = True
+LENGTH_FILE="max_len.pkl"
+VISUALIZER = False
 GRAPH = False
+SAVE = True
 
 #run thr nural net on gpu
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

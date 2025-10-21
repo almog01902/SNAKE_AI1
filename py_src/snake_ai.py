@@ -20,21 +20,26 @@ from model.actor_critic import make_models
 paths = prepare_checkpoint_paths()#preare pathes for chackpoints load
 
 episode_rewards =[]
+len_max = []
 policy, critic, optimizer = make_models(STATE_DIM,ACTION_DIM,LR,device)#make models
-load_checkpoints(policy,critic,optimizer,episode_rewards,paths)#load chackpoints
+load_checkpoints(policy,critic,optimizer,episode_rewards,len_max,paths)#load chackpoints
 #graph to show progress
 if GRAPH:
-    plotter = RewardPlotter()
-    plotter.rewards = episode_rewards
+    rewardPlotter = RewardPlotter()
+    rewardPlotter.rewards = episode_rewards
+    MaxLenPlotter = MaxLenPlotter()
+    MaxLenPlotter.max_lens = len_max
+
 
 rewards_to_save = episode_rewards
+len_max_to_save = len_max
 
 
 
 
 
 # rollout
-for episode in range(1):
+for episode in range(NUM_EPISODES):
     print("Episode:", episode)
 
     # make agents
@@ -166,19 +171,23 @@ for episode in range(1):
     print("avg food eaten :" ,avg_food)
     max_len = torch.max(ep_len).item()
     print("max len is :", max_len)
+    len_max_to_save.append(max_len)
     
 
     #save the learning process
-    if episode % SAVE_INTERVAL == 0:
-        save_checkpoints(policy,critic,optimizer,rewards_to_save,paths)
+    if(SAVE):
+        if episode % SAVE_INTERVAL == 0:
+            save_checkpoints(policy,critic,optimizer,rewards_to_save,len_max_to_save,paths)
 
     if(GRAPH):
-        plotter.update(avg_reward)
+        rewardPlotter.show_rewards(rewards_to_save)
+        MaxLenPlotter.show_len(len_max_to_save)
     if(VISUALIZER):
         renderer.close()
 
 if(GRAPH):
-    plotter.close()
+    rewardPlotter.close()
+    MaxLenPlotter.close()
 
     
 

@@ -58,8 +58,9 @@
     }
 
     //--template functions for player and AI game functions--
-float Game::getDistanceForward()// Get distance to danger ahead
+pair<float,int> Game::getDistanceForward()// Get distance to danger ahead
     {
+        int obstacle = EMPTY;
         pair<int,int> head = snake.body.front();
         int dr=0, dc=0;
         switch(snake.direction) {// Check the direction of the snake
@@ -81,16 +82,18 @@ float Game::getDistanceForward()// Get distance to danger ahead
         int c = head.second + dc; // Calculate new column
         while(r>=0 && r < grid.rows && c >= 0 && c < grid.cols) {
             if(grid.cells[r][c] == OBSTACLE || grid.cells[r][c] == SNAKE) {
+                obstacle = grid.cells[r][c];
                 break; // Stop if there's an obstacle or snake
             }
             dist++; // Increase distance
             r += dr; // Move in the direction of the snake
             c += dc; // Move in the direction of the snake
         }
-        return dist / float((dr!= 0) ? grid.rows : grid.cols); // Normalize distance
+        return make_pair( dist / float((dr!= 0) ? grid.rows : grid.cols),obstacle); // Normalize distance
     }
-    float Game::getDistanceLeft()// Get distance to danger on the left
+    pair<float,int> Game::getDistanceLeft()// Get distance to danger on the left
     {
+        int obstacle = EMPTY;
         pair<int,int> head = snake.body.front();
         int dr=0, dc=0;
         switch(snake.direction) {
@@ -112,16 +115,18 @@ float Game::getDistanceForward()// Get distance to danger ahead
         int c = head.second + dc; // Calculate new column
         while(r>=0 && r < grid.rows && c >= 0 && c < grid.cols) {
             if(grid.cells[r][c] == OBSTACLE || grid.cells[r][c] == SNAKE) {
+                obstacle = grid.cells[r][c];
                 break; // Stop if there's an obstacle or snake
             }
             dist++; // Increase distance
             r += dr; // Move in the direction of the snake
             c += dc; // Move in the direction of the snake
         }
-        return dist / float((dr!= 0) ? grid.rows : grid.cols); // Normalize distance
+        return make_pair(dist / float((dr!= 0) ? grid.rows : grid.cols),obstacle); // Normalize distance
     }
-    float Game::getDistanceRight()// Get distance to danger on the right
+    pair<float,int> Game::getDistanceRight()// Get distance to danger on the right
     {
+        int obstacle = EMPTY;
         pair<int,int> head = snake.body.front();
         int dr=0, dc=0;
         switch(snake.direction) {
@@ -143,13 +148,14 @@ float Game::getDistanceForward()// Get distance to danger ahead
         int c = head.second + dc; // Calculate new column
         while(r>=0 && r < grid.rows && c >= 0 && c < grid.cols) {
             if(grid.cells[r][c] == OBSTACLE || grid.cells[r][c] == SNAKE) {
+                obstacle = grid.cells[r][c];
                 break; // Stop if there's an obstacle or snake
             }
             dist++; // Increase distance
             r += dr; // Move in the direction of the snake
             c += dc; // Move in the direction of the snake
         }
-        return dist / float((dr!= 0) ? grid.rows : grid.cols); // Normalize distance
+        return make_pair( dist / float((dr!= 0) ? grid.rows : grid.cols),obstacle); // Normalize distance
     }
 
     float Game::GetDistanceToFoodX()// Get distance to food in x direction
@@ -210,9 +216,9 @@ float Game::getDistanceForward()// Get distance to danger ahead
         cout << "Score: " << score << endl; // Display the score
         cout << "Distance to food (X): " << GetDistanceToFoodX() << endl; // Display distance to food in x direction
         cout << "Distance to food (Y): " << GetDistanceToFoodY() << endl;
-        cout << "Distance to danger forward: " << getDistanceForward() << endl; // Display distance to danger ahead
-        cout << "Distance to danger left: " << getDistanceLeft() << endl; // Display distance to danger on the left
-        cout << "Distance to danger right: " << getDistanceRight() << endl; // Display distance to danger on the right
+        cout << "Distance to danger forward: " << getDistanceForward().first << endl; // Display distance to danger ahead
+        cout << "Distance to danger left: " << getDistanceLeft().first << endl; // Display distance to danger on the left
+        cout << "Distance to danger right: " << getDistanceRight().first << endl; // Display distance to danger on the right
         cout << "Current direction: " << snake.direction << endl; // Display current direction of the snake
     }
 
@@ -279,12 +285,13 @@ float Game::getDistanceForward()// Get distance to danger ahead
 
     stepResult Game::step(int action)
     {
-        
+        float lastDangerForward = 0.0f;
         stepResult result;
         result.reward = 0.0f;
         result.done = false;
         result.won = false;
-        result.snakeLen = snake.getSnakeLen();
+        int snakeLen = snake.getSnakeLen();
+        result.snakeLen = snakeLen;
         
 
         AIInputHandler(action);//get the ai imput
@@ -295,7 +302,7 @@ float Game::getDistanceForward()// Get distance to danger ahead
 
         if(isGameOver()) {
             result.done = true;
-            result.reward = -300.0f;
+            result.reward = -5000.0f;
             state = GAMEOVER;
             result.foodEaten = foodEaten;
             return result; 
@@ -303,7 +310,6 @@ float Game::getDistanceForward()// Get distance to danger ahead
         if(isGameWon()) {
             result.done = true;
             result.won = true;
-            result.reward = 1000.0f;
             result.foodEaten = foodEaten;
             state = GAMEWON;
             return result;  
@@ -318,9 +324,12 @@ float Game::getDistanceForward()// Get distance to danger ahead
         result.distFoodY = distFoodY;
 
         //get danger dist
-        result.distToDangerForward = getDistanceForward();
-        result.distToDangerLeft = getDistanceLeft();
-        result.distToDangerRight = getDistanceRight();
+        auto [distanceToDangerForward,obsForward] = getDistanceForward();
+        auto [distanceToDangerLeft,obsLeft] = getDistanceLeft();
+        auto [distanceToDangerRight,obsRight] = getDistanceRight();
+        result.distToDangerForward = distanceToDangerForward;
+        result.distToDangerLeft = distanceToDangerLeft;
+        result.distToDangerRight = distanceToDangerRight;
 
         if(isFoodEaten()) {
             snake.grow();        
@@ -361,11 +370,20 @@ float Game::getDistanceForward()// Get distance to danger ahead
             
         }
 
+        /*
+        if(getDistanceForward().second == SNAKE && 
+        distanceToDangerLeft == 0.05 && obsLeft == SNAKE
+        && distanceToDangerRight == 0.05 &&  obsRight == SNAKE 
+        && snakeLen <=100)
+        {
+            result.reward -=10.0f;//dead end
+        }
+        */
         grid.update(snake);//update only after chacking if game over 
 
         return result;
     }
-
+    
 
     void Game::render()
     {

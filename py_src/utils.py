@@ -12,19 +12,22 @@ def prepare_checkpoint_paths():#get the dir for chackpoints
     critic_path = os.path.join(config.CHECKPOINT_DIR, config.CRITIC_FILE)
     optimizer_path = os.path.join(config.CHECKPOINT_DIR, config.OPTIMIZER_FILE)
     rewards_path = os.path.join(config.CHECKPOINT_DIR, config.REWARDS_FILE)
-    return policy_path, critic_path, optimizer_path, rewards_path
+    len_path = os.path.join(config.CHECKPOINT_DIR,config.LENGTH_FILE)
+    return policy_path, critic_path, optimizer_path, rewards_path, len_path
 
-def save_checkpoints(policy, critic, optimizer, episode_rewards, paths):#save chackpoints in dir
-    policy_path, critic_path, optimizer_path, rewards_path = paths
+def save_checkpoints(policy, critic, optimizer, episode_rewards,len_max ,paths):#save chackpoints in dir
+    policy_path, critic_path, optimizer_path, rewards_path ,len_path = paths
     torch.save(policy.state_dict(), policy_path)
     torch.save(critic.state_dict(), critic_path)
     torch.save(optimizer.state_dict(), optimizer_path)
     with open(rewards_path, "wb") as f:
         pickle.dump(episode_rewards, f)
+    with open(len_path,"wb") as f:
+        pickle.dump(len_max,f)
 
 
-def load_checkpoints(policy, critic, optimizer, episode_rewards,paths ):
-    policy_path, critic_path, optimizer_path, rewards_path = paths
+def load_checkpoints(policy, critic, optimizer, episode_rewards,len_max,paths ):
+    policy_path, critic_path, optimizer_path, rewards_path,len_path = paths
     
     if os.path.exists(policy_path):
         policy.load_state_dict(torch.load(policy_path, map_location=config.device))
@@ -36,6 +39,9 @@ def load_checkpoints(policy, critic, optimizer, episode_rewards,paths ):
     if os.path.exists(rewards_path):
         with open(rewards_path, "rb") as f:
             episode_rewards += pickle.load(f)  
+    if os.path.exists(len_path):
+        with open(len_path,"rb") as f:
+            len_max += pickle.load(f)
 
 #class for graph
 class RewardPlotter:
@@ -62,6 +68,38 @@ class RewardPlotter:
         plt.plot(range(1, len(rewards)+1), rewards, marker="o", linestyle="-", label="Average Reward")
         plt.xlabel("Episode")
         plt.ylabel("Avg Reward")
+        plt.title("Training Progress")
+        plt.legend()
+        plt.show()
+
+    def close(self):
+        plt.ioff()
+        plt.show()
+
+class MaxLenPlotter:
+    def __init__(self):
+        plt.ion()
+        self.fig, self.ax = plt.subplots()
+        self.line, = self.ax.plot([], [], marker="o", linestyle="-", color="orange", label="Max Length")
+        self.ax.set_xlabel("Episode")
+        self.ax.set_ylabel("Max Length")
+        self.ax.set_title("Snake Max Length Progress")
+        self.ax.legend()
+        self.max_lens = []
+
+    def update(self, max_len):
+        self.max_lens.append(max_len)
+        x = list(range(1, len(self.max_lens)+1))
+        self.line.set_data(x, self.max_lens)
+        self.ax.relim()
+        self.ax.autoscale()
+        plt.pause(0.01)
+    
+    def show_len(self,length):
+        plt.figure(figsize=(10,5))
+        plt.plot(range(1, len(length)+1), length, marker="o", linestyle="-", label="Max Length")
+        plt.xlabel("Episode")
+        plt.ylabel("Max Len")
         plt.title("Training Progress")
         plt.legend()
         plt.show()

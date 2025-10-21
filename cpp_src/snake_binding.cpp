@@ -35,5 +35,5 @@ PYBIND11_MODULE(snake_module,m){
 
 
 //cd /d d:\snake_ai\cpp_src
-//cl /O2 /LD /EHsc /I"D:\snake_python_lib\Python312\include" /I"D:\snake_python_lib\Python312\Lib\site-packages\pybind11\include" snake_binding.cpp snake.cpp game.cpp grid.cpp /link /LIBPATH:"D:\snake_python_lib\Python312\libs" python312.lib /OUT:snake_module.pyd
+//cl /O2 /LD /EHsc /std:c++17 /I"D:\snake_python_lib\Python312\include" /I"D:\snake_python_lib\Python312\Lib\site-packages\pybind11\include" snake_binding.cpp snake.cpp game.cpp grid.cpp /link /LIBPATH:"D:\snake_python_lib\Python312\libs" python312.lib /OUT:snake_module.pyd
 //compiled with visual studio cl without it the moudle will not work

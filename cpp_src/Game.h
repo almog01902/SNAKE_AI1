@@ -43,9 +43,9 @@ class Game
         //---AI game functions---
     float GetDistanceToFoodX(); // Get distance to food in x direction
     float GetDistanceToFoodY(); // Get distance to food in y direction
-    float getDistanceForward(); // Get distance to danger ahead
-    float getDistanceLeft(); // Get distance to danger on the left
-    float getDistanceRight(); // Get distance to danger on the right
+    pair<float,int> getDistanceForward(); // Get distance to danger ahead
+    pair<float,int> getDistanceLeft(); // Get distance to danger on the left
+    pair<float,int> getDistanceRight(); // Get distance to danger on the right
     void AIInputHandler(int action); // Handle AI input based on action
     stepResult step(int action); // Perform a game step based on the action
     int testRandom();
