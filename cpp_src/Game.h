@@ -34,7 +34,6 @@ class Game
     
 
         //---player game functions---
-    
     void inputHandler(); // Handle user input for snake direction
     void playerGame(); // Start player game mode
     void update(); // Update the game state
@@ -43,13 +42,13 @@ class Game
         //---AI game functions---
     float GetDistanceToFoodX(); // Get distance to food in x direction
     float GetDistanceToFoodY(); // Get distance to food in y direction
-    pair<float,int> getDistanceForward(); // Get distance to danger ahead
-    pair<float,int> getDistanceLeft(); // Get distance to danger on the left
-    pair<float,int> getDistanceRight(); // Get distance to danger on the right
     void AIInputHandler(int action); // Handle AI input based on action
     stepResult step(int action); // Perform a game step based on the action
-    int testRandom();
-    int getSankeLen();
+    pair<float,int> getDistanceInDirection(int dr,int dc);
+    void fillRadar(stepResult& result);//function that fill the reader of the ai
+    float calculateManhattanDistance();
+    void fillAIState(stepResult& result);//function that fill all the ai state 
+
 
     //---debug functions---
     void showStats(); // Show game stats (score, distances, etc.)

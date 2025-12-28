@@ -11,18 +11,30 @@ const int SNAKE_SPEED = 100; // Speed of the snake in milliseconds
 
 struct stepResult//for ai agent
 {
+    //where the head is on the board(normalized)
+    float headX_norm;
+    float headY_norm;
+
+    //distance to food (normalized)
+    float distFoodX;
+    float distFoodY;
+    
+    //rader (the distance to to obstacle in all 8 direction(normalized))
+    float distN,  distS,  distE,  distW;   
+    float distNE, distNW, distSE, distSW;  
+
+    int direction; //current direction of the snake
+
+    float fillPercentage;//how much the board filled
+
+    
+
+    //Metadata
     float reward; // Reward for the current step
     bool done; // Whether the game is over
-    float distFoodX;// Distance to food in x direction
-    float distFoodY; // Distance to food in y direction
-    float distToDangerForward; // Whether there is danger ahead
-    float distToDangerLeft;// Whether there is danger to the left
-    float distToDangerRight; // Whether there is danger to the left or right
-    int direction; // Current direction of the snake
+    bool won;//whether the game won
+    int snakeLen;//current snake Length
     int foodEaten; //number of food eaten
-    bool won;
-    int snakeLen;
-
 };
 
 

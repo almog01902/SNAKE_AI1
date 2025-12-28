@@ -1,23 +1,35 @@
-# snake_module.pyi
-from typing import Any
+from typing import Any, List
 
 class stepResult:
+    # Metadata
     reward: float
     done: bool
-    distFoodX: int
-    distFoodY: int
-    distToDangerForward: int
-    distToDangerLeft: int
-    distToDangerRight: int
-    direction: int
-    foodEaten: int
     won: bool
-    snakeLen:int
+    foodEaten: int
+    snakeLen: int
+    
+    # Observation State (14 inputs)
+    distFoodX: float
+    distFoodY: float
+    headX_norm: float
+    headY_norm: float
+    
+    # Radar (8 directions)
+    distN: float
+    distS: float
+    distE: float
+    distW: float
+    distNW: float
+    distNE: float
+    distSW: float
+    distSE: float
+    
+    # Extras
+    direction: int
+    fillPercentage: float
 
 class Game:
     def __init__(self, gridRows: int, gridCols: int, startX: int, startY: int, initialLength: int) -> None: ...
-    
-    def toggleRender(self) -> None: ...
     
     def step(self, action: int) -> stepResult: ...
 
@@ -25,6 +37,4 @@ class Game:
 
     def render(self) -> None: ...
 
-    def getGrid(self) -> list[list[int]]:...
-    
-    # Additional methods can be added here if needed
+    def getGrid(self) -> List[List[int]]: ...

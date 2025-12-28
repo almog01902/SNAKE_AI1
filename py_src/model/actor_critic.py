@@ -34,5 +34,6 @@ class Critic(nn.Module):#critic class to rank actor action
 def make_models(state_dim, action_dim, lr, device):
     policy = ActorCritic(state_dim, action_dim).to(device)
     critic = Critic(state_dim).to(device)
-    optimizer = optim.Adam(policy.parameters(), lr=lr)
+    all_params = list(policy.parameters()) + list(critic.parameters())
+    optimizer = optim.Adam(all_params,lr=lr)
     return policy, critic, optimizer

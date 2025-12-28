@@ -8,29 +8,38 @@
 
 namespace py = pybind11;
 
-
-PYBIND11_MODULE(snake_module,m){
+PYBIND11_MODULE(snake_module, m) {
     py::class_<stepResult>(m, "stepResult")
         .def(py::init<>())
         .def_readwrite("reward", &stepResult::reward)
         .def_readwrite("done", &stepResult::done)
+        .def_readwrite("won", &stepResult::won)
+        .def_readwrite("foodEaten", &stepResult::foodEaten)
+        .def_readwrite("snakeLen", &stepResult::snakeLen)
         .def_readwrite("distFoodX", &stepResult::distFoodX)
         .def_readwrite("distFoodY", &stepResult::distFoodY)
-        .def_readwrite("distToDangerForward", &stepResult::distToDangerForward)
-        .def_readwrite("distToDangerLeft", &stepResult::distToDangerLeft)
-        .def_readwrite("distToDangerRight", &stepResult::distToDangerRight)
+        .def_readwrite("headX_norm", &stepResult::headX_norm)
+        .def_readwrite("headY_norm", &stepResult::headY_norm)
+        .def_readwrite("distN", &stepResult::distN)
+        .def_readwrite("distS", &stepResult::distS)
+        .def_readwrite("distE", &stepResult::distE)
+        .def_readwrite("distW", &stepResult::distW)
+        .def_readwrite("distNW", &stepResult::distNW)
+        .def_readwrite("distNE", &stepResult::distNE)
+        .def_readwrite("distSW", &stepResult::distSW)
+        .def_readwrite("distSE", &stepResult::distSE)
         .def_readwrite("direction", &stepResult::direction)
-        .def_readwrite("foodEaten", &stepResult::foodEaten)
-        .def_readwrite("won",&stepResult::won)
-        .def_readwrite("snakeLen",&stepResult::snakeLen);
+        .def_readwrite("fillPercentage", &stepResult::fillPercentage);
 
     py::class_<Game>(m, "Game")
-        .def(py::init<int, int, int, int, int>(), py::arg("gridRows"), py::arg("gridCols"), py::arg("startX"), py::arg("startY"), py::arg("initialLength"))
+        .def(py::init<int, int, int, int, int>(), 
+             py::arg("gridRows"), py::arg("gridCols"), 
+             py::arg("startX"), py::arg("startY"), 
+             py::arg("initialLength"))
         .def("step", &Game::step)
         .def("InitilizeGrid", &Game::initilizeGrid)
-        .def("render",&Game::render)
-        .def("getGrid",&Game::getGrid);
-        
+        .def("render", &Game::render)
+        .def("getGrid", &Game::getGrid);
 }
 
 

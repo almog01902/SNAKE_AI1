@@ -24,20 +24,24 @@ while not done:
 
     renderer.update()
 
-    # Get state
     result = agent.step(last_action)
-    state = torch.tensor(
-        [
-            result.distFoodX,
-            result.distFoodY,
-            result.distToDangerForward,
-            result.distToDangerLeft,
-            result.distToDangerRight,
-            result.direction,
-        ],
-        dtype=torch.float32,
-        device=device,
-    ).unsqueeze(0)
+    # Get state
+    state = torch.tensor([
+        result.distFoodX, 
+        result.distFoodY,
+        result.headX_norm, 
+        result.headY_norm,
+        result.distN, 
+        result.distS, 
+        result.distE, 
+        result.distW,
+        result.distNW, 
+        result.distNE, 
+        result.distSW, 
+        result.distSE,
+        float(result.direction),
+        result.fillPercentage
+    ], dtype=torch.float32, device=device).unsqueeze(0)
 
     # Get action
     with torch.no_grad():  # לא רוצים לעדכן גרדיאנטים

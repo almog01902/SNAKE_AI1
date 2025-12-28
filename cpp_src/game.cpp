@@ -8,14 +8,12 @@
         :state(MENU),snake(startX, startY, initialLength), grid(gridRows, gridCols),isAI(false) {}
 
         //---game functions---
-    
-
     void Game::initilizeGrid() {// Initialize the grid and place the snake and food to start the game
         grid.reset();
         grid.placeFood();
         grid.update(snake); // Update the grid with the snake's position and food
         score = 0;
-        foodEaten =0;
+        foodEaten = 0;
         state = PLAYING;
         minDistTOFood = fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
     }
@@ -57,106 +55,7 @@
         return true; // All cells are occupied by the snake
     }
 
-    //--template functions for player and AI game functions--
-pair<float,int> Game::getDistanceForward()// Get distance to danger ahead
-    {
-        int obstacle = EMPTY;
-        pair<int,int> head = snake.body.front();
-        int dr=0, dc=0;
-        switch(snake.direction) {// Check the direction of the snake
-            case UP:
-                dr = -1; // Move up
-                break;
-            case RIGHT:
-                dc = 1; // Move right
-                break;
-            case DOWN:
-                dr = 1; // Move down
-                break;
-            case LEFT:
-                dc = -1; // Move left
-                break;
-        }
-        float dist = 1.0f;
-        int r = head.first + dr; // Calculate new row
-        int c = head.second + dc; // Calculate new column
-        while(r>=0 && r < grid.rows && c >= 0 && c < grid.cols) {
-            if(grid.cells[r][c] == OBSTACLE || grid.cells[r][c] == SNAKE) {
-                obstacle = grid.cells[r][c];
-                break; // Stop if there's an obstacle or snake
-            }
-            dist++; // Increase distance
-            r += dr; // Move in the direction of the snake
-            c += dc; // Move in the direction of the snake
-        }
-        return make_pair( dist / float((dr!= 0) ? grid.rows : grid.cols),obstacle); // Normalize distance
-    }
-    pair<float,int> Game::getDistanceLeft()// Get distance to danger on the left
-    {
-        int obstacle = EMPTY;
-        pair<int,int> head = snake.body.front();
-        int dr=0, dc=0;
-        switch(snake.direction) {
-            case UP:
-                dc = -1; // Move left
-                break;
-            case RIGHT:
-                dr = -1; // Move down
-                break;
-            case DOWN:
-                dc = 1; // Move right
-                break;
-            case LEFT:
-                dr = 1; // Move up
-                break;
-        }
-        float dist = 1.0f;
-        int r = head.first + dr; // Calculate new row
-        int c = head.second + dc; // Calculate new column
-        while(r>=0 && r < grid.rows && c >= 0 && c < grid.cols) {
-            if(grid.cells[r][c] == OBSTACLE || grid.cells[r][c] == SNAKE) {
-                obstacle = grid.cells[r][c];
-                break; // Stop if there's an obstacle or snake
-            }
-            dist++; // Increase distance
-            r += dr; // Move in the direction of the snake
-            c += dc; // Move in the direction of the snake
-        }
-        return make_pair(dist / float((dr!= 0) ? grid.rows : grid.cols),obstacle); // Normalize distance
-    }
-    pair<float,int> Game::getDistanceRight()// Get distance to danger on the right
-    {
-        int obstacle = EMPTY;
-        pair<int,int> head = snake.body.front();
-        int dr=0, dc=0;
-        switch(snake.direction) {
-            case UP:
-                dc = 1; // Move right
-                break;
-            case RIGHT:
-                dr = 1; // Move down
-                break;
-            case DOWN:
-                dc = -1; // Move left
-                break;
-            case LEFT:
-                dr = -1; // Move  up
-                break;
-        }
-        float dist = 1.0f;
-        int r = head.first + dr; // Calculate new row
-        int c = head.second + dc; // Calculate new column
-        while(r>=0 && r < grid.rows && c >= 0 && c < grid.cols) {
-            if(grid.cells[r][c] == OBSTACLE || grid.cells[r][c] == SNAKE) {
-                obstacle = grid.cells[r][c];
-                break; // Stop if there's an obstacle or snake
-            }
-            dist++; // Increase distance
-            r += dr; // Move in the direction of the snake
-            c += dc; // Move in the direction of the snake
-        }
-        return make_pair( dist / float((dr!= 0) ? grid.rows : grid.cols),obstacle); // Normalize distance
-    }
+
 
     float Game::GetDistanceToFoodX()// Get distance to food in x direction
     {
@@ -216,9 +115,6 @@ pair<float,int> Game::getDistanceForward()// Get distance to danger ahead
         cout << "Score: " << score << endl; // Display the score
         cout << "Distance to food (X): " << GetDistanceToFoodX() << endl; // Display distance to food in x direction
         cout << "Distance to food (Y): " << GetDistanceToFoodY() << endl;
-        cout << "Distance to danger forward: " << getDistanceForward().first << endl; // Display distance to danger ahead
-        cout << "Distance to danger left: " << getDistanceLeft().first << endl; // Display distance to danger on the left
-        cout << "Distance to danger right: " << getDistanceRight().first << endl; // Display distance to danger on the right
         cout << "Current direction: " << snake.direction << endl; // Display current direction of the snake
     }
 
@@ -259,10 +155,8 @@ pair<float,int> Game::getDistanceForward()// Get distance to danger ahead
                 exit(0); // Exit the game
         }
     }
-    //---AI game functions---
 
-    
-    
+    //---AI game functions---
     void Game::AIInputHandler(int action)// Handle AI input based on action
     {
         switch(action) {
@@ -281,109 +175,138 @@ pair<float,int> Game::getDistanceForward()// Get distance to danger ahead
         }
     }
 
+    pair<float, int> Game::getDistanceInDirection(int dr, int dc) {
+    pair<int, int> head = snake.body.front();
+    float dist = 0.0f;
+    int r = head.first + dr;
+    int c = head.second + dc;
+    int obstacle = EMPTY;
+
+    //chack where when we hit an obstacle or the body
+    while (r >= 0 && r < grid.rows && c >= 0 && c < grid.cols) {
+        if (grid.cells[r][c] == SNAKE || grid.cells[r][c] == OBSTACLE) {
+            obstacle = grid.cells[r][c];
+            break;
+        }
+        dist += 1.0f;
+        r += dr;
+        c += dc;
+    }
+
+    // normalized
+    float max_dim = (float)max(grid.rows, grid.cols);
+    return make_pair(dist / max_dim, obstacle);
+}
+
+    void Game::fillRadar(stepResult& result) {//function that fill the reader of the ai
+
+    int dr[] = {-1,  1,  0,  0, -1, -1,  1,  1}; //the dirctions N S E W NW NE SW SE
+    int dc[] = { 0,  0,  1, -1, -1,  1, -1,  1};
+    
+    float distances[8];
+
+    for (int i = 0; i < 8; i++) {
+        
+        auto res = getDistanceInDirection(dr[i], dc[i]);
+        distances[i] = res.first; 
+    }
+
+    //add the direction to the result directions
+    result.distN  = distances[0];
+    result.distS  = distances[1];
+    result.distE  = distances[2];
+    result.distW  = distances[3];
+    result.distNW = distances[4];
+    result.distNE = distances[5];
+    result.distSW = distances[6];
+    result.distSE = distances[7];
+}
     
 
-    stepResult Game::step(int action)
-    {
-        float lastDangerForward = 0.0f;
+    stepResult Game::step(int action) {
         stepResult result;
+        
+        //1. initilize stats
         result.reward = 0.0f;
         result.done = false;
         result.won = false;
-        int snakeLen = snake.getSnakeLen();
-        result.snakeLen = snakeLen;
-        
+        result.snakeLen = snake.getSnakeLen();
 
-        AIInputHandler(action);//get the ai imput
+        // 2. update game state
+        AIInputHandler(action);
         result.direction = snake.direction;
         snake.move();
-        
 
-
-        if(isGameOver()) {
+        // 3. chack the game state
+        if (isGameOver()) {
             result.done = true;
-            result.reward = -5000.0f;
+            result.reward = -50.0f; 
+            result.foodEaten = foodEaten; 
+            result.snakeLen = snake.getSnakeLen(); 
             state = GAMEOVER;
-            result.foodEaten = foodEaten;
-            return result; 
+            return result;
         }
-        if(isGameWon()) {
+        
+        if (isGameWon()) {
             result.done = true;
             result.won = true;
-            result.foodEaten = foodEaten;
+            result.reward = 500.0f;
+            result.foodEaten = foodEaten; 
+            result.snakeLen = snake.getSnakeLen();
             state = GAMEWON;
-            return result;  
+            return result;
         }
 
-        //get food distance
-        float distFoodX = GetDistanceToFoodX();
-        float distFoodY = GetDistanceToFoodY();
-        float currDist = fabs(distFoodX) + fabs(distFoodY);
+        //4. give the ai the state
+        fillAIState(result);
 
-        result.distFoodX = distFoodX;
-        result.distFoodY = distFoodY;
-
-        //get danger dist
-        auto [distanceToDangerForward,obsForward] = getDistanceForward();
-        auto [distanceToDangerLeft,obsLeft] = getDistanceLeft();
-        auto [distanceToDangerRight,obsRight] = getDistanceRight();
-        result.distToDangerForward = distanceToDangerForward;
-        result.distToDangerLeft = distanceToDangerLeft;
-        result.distToDangerRight = distanceToDangerRight;
-
-        if(isFoodEaten()) {
-            snake.grow();        
-            foodEaten++;     
-            grid.placeFood();  
-            result.reward = 150.0f;  
-            minDistTOFood = fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
-        }
-        else 
-        {
+        // 5. rewards
+        if (isFoodEaten()) {
+            snake.grow();
+            foodEaten++;
+            grid.placeFood();
+            result.reward = 150.0f;
+            //calaculate min dist
+            minDistTOFood = calculateManhattanDistance();
+        } 
+        else {
+            // reaward or punish based on the ai disicisions  
+            float currDist = calculateManhattanDistance();
             float delta = minDistTOFood - currDist;
-
-
-            bool correctDir = false;
-            switch(snake.direction) {
-                case RIGHT: correctDir = (distFoodX < 0); break; // צריך להיות שלילי כי foodX > snakeX
-                case LEFT:  correctDir = (distFoodX > 0); break; // צריך להיות חיובי
-                case DOWN:  correctDir = (distFoodY < 0); break; // foodY > snakeY -> למטה
-                case UP:    correctDir = (distFoodY > 0); break; // foodY < snakeY -> למעלה
-            }
-
-            // חישוב reward
-            if (delta > 0) {//snake get closer
-                
-                result.reward = correctDir ? delta * 5.0f : delta * 3.0f;
-                // עדכון המרחק המינימלי
-                minDistTOFood = currDist;
-            } 
-            else if (delta < 0) { //if sanke dosent get closer to food
-                
-                result.reward = -fabs(delta) * 5.0f;
-            } 
-            else {
-                //zig-zag
-                result.reward = -1.0f;
-            }
-
             
+            if (delta > 0) result.reward = 1.0f;  //getting close to food
+            else if (delta < 0) result.reward = -1.5f; // getting away from food
+            else result.reward = -0.1f; // just moving around
+            
+            minDistTOFood = currDist;
         }
 
-        /*
-        if(getDistanceForward().second == SNAKE && 
-        distanceToDangerLeft == 0.05 && obsLeft == SNAKE
-        && distanceToDangerRight == 0.05 &&  obsRight == SNAKE 
-        && snakeLen <=100)
-        {
-            result.reward -=10.0f;//dead end
-        }
-        */
-        grid.update(snake);//update only after chacking if game over 
-
+        result.foodEaten = foodEaten;
+        // 6. update the grid and return result
+        grid.update(snake);
         return result;
     }
     
+    void Game::fillAIState(stepResult& result) {
+    // 1. normalized place for the head
+    result.headX_norm = (float)snake.body.front().second / (float)grid.cols;
+    result.headY_norm = (float)snake.body.front().first / (float)grid.rows;
+
+    // 2. distance to food
+    result.distFoodX = GetDistanceToFoodX();
+    result.distFoodY = GetDistanceToFoodY();
+
+    // 3. fill the rader
+    fillRadar(result);
+
+
+    // 4. fill percantege
+    result.fillPercentage = (float)snake.getSnakeLen() / (float)(grid.rows * grid.cols);
+}
+
+float Game::calculateManhattanDistance() {
+    return fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
+}
 
     void Game::render()
     {
