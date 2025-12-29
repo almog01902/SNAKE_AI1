@@ -63,6 +63,8 @@ for episode in range(NUM_EPISODES):
     ep_len = torch.zeros(NUM_AGENTS,dtype=torch.int32)
 
     # buffers
+    all_states = []
+    all_actions = []
     all_log_probs = []
     all_values = []
     all_rewards = []
@@ -70,6 +72,8 @@ for episode in range(NUM_EPISODES):
 
     while not all(done_flags):
         #buffer for step
+        step_state = []
+        step_actions = []
         step_log_probs = []
         step_values = []
         step_rewards = []
@@ -82,6 +86,8 @@ for episode in range(NUM_EPISODES):
 
             if done_flags[i]:#for agents who finished the game we make empty stats
                 reward_value = 0.0 if won_flags[i] else -0.01
+                step_state.append(torch.zeros(STATE_DIM,device=device))
+                step_actions.append(torch.tensor(0, device=device))
                 step_rewards.append(torch.tensor(reward_value,dtype=torch.float32,device =device))
                 step_dones.append(torch.tensor(1.0,dtype=torch.float32,device = device))
                 step_log_probs.append(torch.tensor(0.0,dtype=torch.float32,device = device))
@@ -115,6 +121,8 @@ for episode in range(NUM_EPISODES):
             log_prob = dist.log_prob(action_t)
 
             # save step data
+            step_state.append(state.squeeze())
+            step_actions.append(action_t.squeeze())
             step_log_probs.append(log_prob.squeeze())
             step_values.append(value.squeeze())
             step_rewards.append(torch.tensor(result.reward, dtype=torch.float32,device=device))
@@ -135,11 +143,18 @@ for episode in range(NUM_EPISODES):
 
 
         # save per-step tensors
+        all_states.append(torch.stack(step_state))
+        all_actions.append(torch.stack(step_actions))
         all_log_probs.append(torch.stack(step_log_probs))
         all_values.append(torch.stack(step_values))
         all_rewards.append(torch.stack(step_rewards))
         all_dones.append(torch.stack(step_dones))
 
+
+    #calaulate adventeges
+    state_b = torch.stack(all_states).view(-1,STATE_DIM).detach()
+    actions_b = torch.stack(all_actions).view(-1).detach()
+    old_log_probs_b = torch.stack(all_log_probs).view(-1).detach()
     # === GAE / returns ===
     returns = []
     G = torch.zeros(NUM_AGENTS,device=device)
@@ -148,30 +163,46 @@ for episode in range(NUM_EPISODES):
         returns.insert(0, G.clone())
     returns = torch.stack(returns)
 
+    values_b = torch.stack(all_values).detach() 
+    returns_b = returns.detach()
+
     # advantages
     values = torch.stack(all_values)
     advantages = returns - values
+    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)#normolized 
+    advantages_b = advantages.detach()
 
-    # losses
-    log_probs = torch.stack(all_log_probs).squeeze(-1)
-    actor_loss = -(log_probs * advantages).mean()
-    critic_loss = F.mse_loss(values, returns)
-    loss = actor_loss + 0.5 * critic_loss
+    for _ in range(UPDATE_STEP):
+        #calaulate the probibality
+        new_action_probs = policy(state_b)
+        new_values = critic(state_b).squeeze()
+        
 
-    #update grad
-    optimizer.zero_grad()
-    loss.backward()
+        dist = Categorical(new_action_probs)
+        new_log_probs = dist.log_prob(actions_b)
+        entropy = dist.entropy().mean()
 
-    # Gradient Clipping
-    torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=0.5)
-    torch.nn.utils.clip_grad_norm_(critic.parameters(), max_norm=0.5)
-    
-    optimizer.step()
+        # Ratio 
+        ratio = torch.exp(new_log_probs - old_log_probs_b)
 
-   
+        # PPO Clipped Loss 
+        surr1 = ratio * advantages_b.view(-1)
+        surr2 = torch.clamp(ratio, 1 - EPS_CLIPS, 1 + EPS_CLIPS) * advantages_b.view(-1)
+        
+        actor_loss = -torch.min(surr1, surr2).mean()
+        critic_loss = F.mse_loss(new_values, returns_b.view(-1))
+        
+        # Loss 
+        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
 
+        optimizer.zero_grad()
+        loss.backward()
+        # Gradient Clipping
+        torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=0.5)
+        torch.nn.utils.clip_grad_norm_(critic.parameters(), max_norm=0.5)
+        optimizer.step()
 
-    #gwt avg score
+    #get avg score
     avg_reward = ep_rewards.mean().item()
     print("avg reward: " ,avg_reward)
     rewards_to_save.append(avg_reward)
