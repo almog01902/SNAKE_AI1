@@ -161,7 +161,15 @@ for episode in range(NUM_EPISODES):
     #update grad
     optimizer.zero_grad()
     loss.backward()
+
+    # Gradient Clipping
+    torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=0.5)
+    torch.nn.utils.clip_grad_norm_(critic.parameters(), max_norm=0.5)
+    
     optimizer.step()
+
+   
+
 
     #gwt avg score
     avg_reward = ep_rewards.mean().item()
