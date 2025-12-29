@@ -85,7 +85,7 @@ for episode in range(NUM_EPISODES):
         for i, agent in enumerate(agents):
 
             if done_flags[i]:#for agents who finished the game we make empty stats
-                reward_value = 0.0 if won_flags[i] else -0.01
+                reward_value = 0.0 
                 step_state.append(torch.zeros(STATE_DIM,device=device))
                 step_actions.append(torch.tensor(0, device=device))
                 step_rewards.append(torch.tensor(reward_value,dtype=torch.float32,device =device))
@@ -155,6 +155,7 @@ for episode in range(NUM_EPISODES):
     state_b = torch.stack(all_states).view(-1,STATE_DIM).detach()
     actions_b = torch.stack(all_actions).view(-1).detach()
     old_log_probs_b = torch.stack(all_log_probs).view(-1).detach()
+    mask_b = (1.0 - torch.stack(all_dones).view(-1)).detach()
     # === GAE / returns ===
     returns = []
     G = torch.zeros(NUM_AGENTS,device=device)
@@ -163,14 +164,21 @@ for episode in range(NUM_EPISODES):
         returns.insert(0, G.clone())
     returns = torch.stack(returns)
 
-    values_b = torch.stack(all_values).detach() 
-    returns_b = returns.detach()
+    values_b = torch.stack(all_values).view(-1).detach() 
+    returns_b = returns.detach().view(-1)
 
     # advantages
     values = torch.stack(all_values)
-    advantages = returns - values
-    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)#normolized 
-    advantages_b = advantages.detach()
+    advantages_b = returns_b - values_b
+    valid_advantages = advantages_b[mask_b > 0.5] # רק הצעדים שבהם הנחש חי
+    if valid_advantages.numel() > 0:
+        adj_mean = valid_advantages.mean()
+        adj_std = valid_advantages.std()
+        advantages_normalized_b = (advantages_b - adj_mean) / (adj_std + 1e-8)
+    else:
+        advantages_normalized_b = advantages_b
+
+    advantages_normalized_b = advantages_normalized_b * mask_b
 
     for _ in range(UPDATE_STEP):
         #calaulate the probibality
@@ -186,14 +194,17 @@ for episode in range(NUM_EPISODES):
         ratio = torch.exp(new_log_probs - old_log_probs_b)
 
         # PPO Clipped Loss 
-        surr1 = ratio * advantages_b.view(-1)
-        surr2 = torch.clamp(ratio, 1 - EPS_CLIPS, 1 + EPS_CLIPS) * advantages_b.view(-1)
+        surr1 = ratio * advantages_normalized_b
+        surr2 = torch.clamp(ratio, 1 - EPS_CLIPS, 1 + EPS_CLIPS) * advantages_normalized_b
         
-        actor_loss = -torch.min(surr1, surr2).mean()
-        critic_loss = F.mse_loss(new_values, returns_b.view(-1))
+        actor_loss = -(torch.min(surr1, surr2)* mask_b).sum() / (mask_b.sum()+1e-8)
+        critic_loss_raw = F.mse_loss(new_values, returns_b.view(-1), reduction='none')
+        critic_loss = (critic_loss_raw*mask_b).sum() / (mask_b.sum()+ 1e-8)
+
+        entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy
+        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()
