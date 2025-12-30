@@ -32,7 +32,7 @@
     {
         pair<int,int> head = snake.body.front();
         // Check if the snake collides with itself or the walls
-        if (head.first < 0 || head.first >= grid.cols || head.second < 0 || head.second >= grid.rows) {
+        if (head.first < 0 || head.first >= grid.rows || head.second < 0 || head.second >= grid.cols) {
             return true; // Collision with walls
         }
         for (size_t i = 1; i < snake.body.size(); i++) {
@@ -194,7 +194,7 @@
     }
 
     // normalized
-    float max_dim = (float)max(grid.rows, grid.cols);
+    float max_dim = (float)max(grid.rows-1, grid.cols-1);
     return make_pair(dist / max_dim, obstacle);
 }
 
@@ -240,7 +240,7 @@
         // 3. chack the game state
         if (isGameOver()) {
             result.done = true;
-            result.reward = -50.0f; 
+            result.reward = -200.0f; 
             result.foodEaten = foodEaten; 
             result.snakeLen = snake.getSnakeLen(); 
             state = GAMEOVER;
@@ -289,12 +289,12 @@
     
     void Game::fillAIState(stepResult& result) {
     // 1. normalized place for the head
-    result.headX_norm = (float)snake.body.front().second / (float)grid.cols;
-    result.headY_norm = (float)snake.body.front().first / (float)grid.rows;
+    result.headX_norm = (float)snake.body.front().second / (float)(grid.cols - 1);
+    result.headY_norm = (float)snake.body.front().first / (float)(grid.rows - 1);
 
     // 2. distance to food
-    result.distFoodX = GetDistanceToFoodX();
-    result.distFoodY = GetDistanceToFoodY();
+    result.distFoodX = (GetDistanceToFoodX()+1.0f)/2.0f;
+    result.distFoodY = (GetDistanceToFoodY()+1.0f)/2.0f;
 
     // 3. fill the rader
     fillRadar(result);

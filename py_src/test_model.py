@@ -52,7 +52,7 @@ while not done:
     done = result.done
 
     # Optional: print progress
-    print(f"Snake length: {result.snakeLen}, Food eaten: {result.foodEaten}, Reward: {result.reward} ,Danger: {result.distToDangerForward}")
+    print(f"Snake length: {result.snakeLen}, Food eaten: {result.foodEaten}, Reward: {result.reward}")
 
 if VISUALIZER:
     renderer.close()
