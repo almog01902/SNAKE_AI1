@@ -28,7 +28,10 @@ PYBIND11_MODULE(snake_module, m) {
         .def_readwrite("distNE", &stepResult::distNE)
         .def_readwrite("distSW", &stepResult::distSW)
         .def_readwrite("distSE", &stepResult::distSE)
-        .def_readwrite("direction", &stepResult::direction)
+        .def_readwrite("isUp", &stepResult::isUp)
+        .def_readwrite("isDown", &stepResult::isDown)
+        .def_readwrite("isLeft", &stepResult::isLeft)
+        .def_readwrite("isRight", &stepResult::isRight)
         .def_readwrite("fillPercentage", &stepResult::fillPercentage);
 
     py::class_<Game>(m, "Game")

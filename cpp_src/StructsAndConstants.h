@@ -23,9 +23,9 @@ struct stepResult//for ai agent
     float distN,  distS,  distE,  distW;   
     float distNE, distNW, distSE, distSW;  
 
-    int direction; //current direction of the snake
-
     float fillPercentage;//how much the board filled
+
+    float isUp , isDown,isLeft,isRight; //current direction of the snake
 
     
 

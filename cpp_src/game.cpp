@@ -234,7 +234,6 @@
 
         // 2. update game state
         AIInputHandler(action);
-        result.direction = snake.direction;
         snake.move();
 
         // 3. chack the game state
@@ -299,8 +298,13 @@
     // 3. fill the rader
     fillRadar(result);
 
+    //4. one hot direction
+    result.isUp    = (snake.direction == UP)    ? 1.0f : 0.0f;
+    result.isDown  = (snake.direction == DOWN)  ? 1.0f : 0.0f;
+    result.isLeft  = (snake.direction == LEFT)  ? 1.0f : 0.0f;
+    result.isRight = (snake.direction == RIGHT) ? 1.0f : 0.0f;
 
-    // 4. fill percantege
+    // 5. fill percantege
     result.fillPercentage = (float)snake.getSnakeLen() / (float)(grid.rows * grid.cols);
 }
 

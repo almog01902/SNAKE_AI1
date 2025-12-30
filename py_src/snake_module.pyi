@@ -23,6 +23,11 @@ class stepResult:
     distNE: float
     distSW: float
     distSE: float
+
+    isUp : float
+    isDown: float
+    isLeft: float
+    isRight:float
     
     # Extras
     direction: int
