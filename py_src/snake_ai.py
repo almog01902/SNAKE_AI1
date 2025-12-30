@@ -228,6 +228,7 @@ for episode in range(NUM_EPISODES):
     max_len = torch.max(ep_len).item()
     print("max len is :", max_len)
     len_max_to_save.append(max_len)
+    print(f"entropy is : {entropy_masked.item():.4f}")
     
 
     #save the learning process

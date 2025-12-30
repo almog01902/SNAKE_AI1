@@ -43,7 +43,11 @@ while not done:
         result.isDown,
         result.isLeft,
         result.isRight,
-        result.fillPercentage
+        result.fillPercentage,
+        result.accessibleSpace,
+        result.diffX,
+        result.diffY,
+        result.timePressure
         ], dtype=torch.float32, device=device).unsqueeze(0)
 
     # Get action
