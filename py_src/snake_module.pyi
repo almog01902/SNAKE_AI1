@@ -30,8 +30,13 @@ class stepResult:
     isRight:float
     
     # Extras
-    direction: int
     fillPercentage: float
+    accessibleSpace:float
+
+    diffX: float
+    diffY: float
+    timePressure : float
+
 
 class Game:
     def __init__(self, gridRows: int, gridCols: int, startX: int, startY: int, initialLength: int) -> None: ...
