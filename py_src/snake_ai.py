@@ -30,7 +30,6 @@ if GRAPH:
     MaxLenPlotter = MaxLenPlotter()
     MaxLenPlotter.max_lens = len_max
 
-
 rewards_to_save = episode_rewards
 len_max_to_save = len_max
 

@@ -20,6 +20,7 @@ class Game
     int foodEaten;
     bool isAI;
     float minDistTOFood;
+    int stepsSinceLastFood =0;
     Snake snake;
     Grid grid;
 
@@ -48,6 +49,8 @@ class Game
     void fillRadar(stepResult& result);//function that fill the reader of the ai
     float calculateManhattanDistance();
     void fillAIState(stepResult& result);//function that fill all the ai state 
+    float calculateAccessibleSpace();//function that show hoe much spacr we have to move
+    void getTailDir(float& outX,float& outY);//get the distance between the head and the tail
 
 
     //---debug functions---

@@ -39,9 +39,12 @@ while not done:
         result.distNE, 
         result.distSW, 
         result.distSE,
-        float(result.direction),
+        result.isUp,
+        result.isDown,
+        result.isLeft,
+        result.isRight,
         result.fillPercentage
-    ], dtype=torch.float32, device=device).unsqueeze(0)
+        ], dtype=torch.float32, device=device).unsqueeze(0)
 
     # Get action
     with torch.no_grad():  # לא רוצים לעדכן גרדיאנטים

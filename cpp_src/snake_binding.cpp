@@ -32,6 +32,10 @@ PYBIND11_MODULE(snake_module, m) {
         .def_readwrite("isDown", &stepResult::isDown)
         .def_readwrite("isLeft", &stepResult::isLeft)
         .def_readwrite("isRight", &stepResult::isRight)
+        .def_readwrite("accessibleSpace", &stepResult::accessibleSpace)
+        .def_readwrite("diffX",&stepResult::diffX)
+        .def_readwrite("diffY",&stepResult::diffy)
+        .def_readwrite("timePressure",&stepResult::timePressure)
         .def_readwrite("fillPercentage", &stepResult::fillPercentage);
 
     py::class_<Game>(m, "Game")

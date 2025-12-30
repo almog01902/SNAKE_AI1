@@ -27,6 +27,12 @@ struct stepResult//for ai agent
 
     float isUp , isDown,isLeft,isRight; //current direction of the snake
 
+    float accessibleSpace;//how much space can the snake move through
+
+    float diffX , diffy; //vector from the head to tail normalized
+
+    float timePressure;
+
     
 
     //Metadata

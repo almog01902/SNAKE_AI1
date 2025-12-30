@@ -1,5 +1,6 @@
 #include "Game.h"
 #include <cmath> // For fabs function
+#include <queue>
 
 
 
@@ -235,9 +236,15 @@
         // 2. update game state
         AIInputHandler(action);
         snake.move();
+        stepsSinceLastFood++;
 
+        //calculate the max steps for a snake in its length(we want the snake to bo optimal and will not make cirecles around the apple)
+        int baseSteps = (grid.rows + grid.cols) * 2.5; 
+        int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 10);
+
+        bool starved = stepsSinceLastFood>dynamicMaxSteps;
         // 3. chack the game state
-        if (isGameOver()) {
+        if (isGameOver()|| starved) {
             result.done = true;
             result.reward = -200.0f; 
             result.foodEaten = foodEaten; 
@@ -259,25 +266,41 @@
         //4. give the ai the state
         fillAIState(result);
 
+        float timePressure = (float)stepsSinceLastFood / (float)dynamicMaxSteps;
+
+        result.timePressure = timePressure;
+
         // 5. rewards
         if (isFoodEaten()) {
             snake.grow();
             foodEaten++;
             grid.placeFood();
-            result.reward = 150.0f;
+            float riskBonus = (result.accessibleSpace < 0.2f) ? 50.0f: 0.0f;
+            result.reward = 150.0f + riskBonus;
+            stepsSinceLastFood =0;
             //calaculate min dist
             minDistTOFood = calculateManhattanDistance();
         } 
         else {
+
+            //punishment for each time the snake doesnt eat
+            result.reward = -0.1f * (1.0f + timePressure);
             // reaward or punish based on the ai disicisions  
             float currDist = calculateManhattanDistance();
             float delta = minDistTOFood - currDist;
             
-            if (delta > 0) result.reward = 1.0f;  //getting close to food
-            else if (delta < 0) result.reward = -1.5f; // getting away from food
-            else result.reward = -0.1f; // just moving around
+            if (delta > 0)
+            {
+                if(timePressure <0.8f)
+                {
+                    result.reward+=1.0f;
+                    minDistTOFood = currDist;
+                }
+                
+            } 
+            else if (delta <= 0) result.reward -=1.5f; // getting away from food
             
-            minDistTOFood = currDist;
+            
         }
 
         result.foodEaten = foodEaten;
@@ -306,6 +329,80 @@
 
     // 5. fill percantege
     result.fillPercentage = (float)snake.getSnakeLen() / (float)(grid.rows * grid.cols);
+    // 6. acssesible space
+    result.accessibleSpace = calculateAccessibleSpace();
+    // 7. tails dir feom player
+    getTailDir(result.diffX,result.diffy);
+}
+
+float Game::calculateAccessibleSpace() {
+    //  y הוא rows, x הוא cols
+    int startX = snake.body.front().second; // Column
+    int startY = snake.body.front().first;  // Row
+    
+    int cols = grid.cols;
+    int rows = grid.rows;
+
+    std::vector<bool> visited(rows * cols, false);
+    std::queue<std::pair<int, int>> q;
+
+    q.push({startX, startY});
+    visited[startY * cols + startX] = true;
+    int reachableCount = 0;
+
+    while (!q.empty()) {
+        std::pair<int, int> curr = q.front();
+        q.pop();
+
+        int dx[] = {0, 0, 1, -1};
+        int dy[] = {1, -1, 0, 0};
+
+        for (int i = 0; i < 4; i++) {
+           
+            int nx = curr.first + dx[i];
+            int ny = curr.second + dy[i];
+
+            //chacking borders
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                int index = ny * cols + nx; 
+                //cells[row][col] -> [ny][nx]
+                if (!visited[index] && grid.cells[ny][nx] != SNAKE) {
+                    visited[index] = true;
+                    q.push({nx, ny});
+                    reachableCount++;
+                }
+            }
+        }
+    }
+    // calculate all empty spaces
+    int totalEmpty = 0;
+    for(int i = 0; i < rows; i++) {
+        for(int j = 0; j < cols; j++) {
+            if(grid.cells[i][j] != SNAKE) {
+                totalEmpty++;
+            }
+        }
+    }
+    
+    if (totalEmpty == 0) return 1.0f;
+    
+    //normalized return
+    return (float)reachableCount / (float)totalEmpty;
+}
+
+
+void Game::getTailDir(float& outX, float& outY) {
+
+    auto head = snake.body.front();
+    auto tail = snake.body.back();
+
+    //distance
+    float diffY = (float)tail.first - (float)head.first;
+    float diffX = (float)tail.second - (float)head.second;
+
+    
+    outY = diffY / (float)grid.rows;
+    outX = diffX / (float)grid.cols;
 }
 
 float Game::calculateManhattanDistance() {
