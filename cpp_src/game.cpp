@@ -246,7 +246,7 @@
         // 3. chack the game state
         if (isGameOver()|| starved) {
             result.done = true;
-            result.reward = -200.0f; 
+            result.reward = -1000.0f; 
             result.foodEaten = foodEaten; 
             result.snakeLen = snake.getSnakeLen(); 
             state = GAMEOVER;
@@ -256,7 +256,7 @@
         if (isGameWon()) {
             result.done = true;
             result.won = true;
-            result.reward = 500.0f;
+            result.reward = 2000.0f;
             result.foodEaten = foodEaten; 
             result.snakeLen = snake.getSnakeLen();
             state = GAMEWON;
@@ -275,8 +275,8 @@
             snake.grow();
             foodEaten++;
             grid.placeFood();
-            float riskBonus = (result.accessibleSpace < 0.2f) ? 50.0f: 0.0f;
-            result.reward = 150.0f + riskBonus;
+            float riskBonus = (result.accessibleSpace < 0.2f) ? 100.0f: 0.0f;
+            result.reward = 250.0f + riskBonus;
             stepsSinceLastFood =0;
             //calaculate min dist
             minDistTOFood = calculateManhattanDistance();
@@ -298,7 +298,7 @@
                 }
                 
             } 
-            else if (delta <= 0) result.reward -=1.5f; // getting away from food
+            else if (delta <= 0) result.reward -=2.5f; // getting away from food
             
             
         }
