@@ -240,7 +240,7 @@
 
         //calculate the max steps for a snake in its length(we want the snake to bo optimal and will not make cirecles around the apple)
         int baseSteps = (grid.rows + grid.cols) * 2.5; 
-        int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 4);
+        int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 3);
 
         bool starved = stepsSinceLastFood>dynamicMaxSteps;
         // 3. chack the game state
@@ -275,8 +275,7 @@
             snake.grow();
             foodEaten++;
             grid.placeFood();
-            float riskBonus = (result.accessibleSpace < 0.2f) ? 100.0f: 0.0f;
-            result.reward = 250.0f + riskBonus;
+            result.reward = 250.0f;
             stepsSinceLastFood =0;
             //calaculate min dist
             minDistTOFood = calculateManhattanDistance();
@@ -300,11 +299,8 @@
             
         }
 
-        float totalEmptyCells = (grid.rows * grid.cols) - snake.getSnakeLen()-1;//-1 for apple
-        float accessibleCells = result.accessibleSpace * (grid.rows * grid.cols);
-        if (accessibleCells < totalEmptyCells * 0.7f) { 
-        result.reward -= 5.0f; // for entering dead spaces
-        }
+
+        result.reward -= (1.0f-result.accessibleSpace) * 10.0f;
 
         result.foodEaten = foodEaten;
         // 6. update the grid and return result
