@@ -300,6 +300,12 @@
             
         }
 
+        float totalEmptyCells = (grid.rows * grid.cols) - snake.getSnakeLen()-1;//-1 for apple
+        float accessibleCells = result.accessibleSpace * (grid.rows * grid.cols);
+        if (accessibleCells < totalEmptyCells * 0.7f) { 
+        result.reward -= 5.0f; // for entering dead spaces
+        }
+
         result.foodEaten = foodEaten;
         // 6. update the grid and return result
         grid.update(snake);
