@@ -54,12 +54,22 @@ while not done:
     with torch.no_grad():  # לא רוצים לעדכן גרדיאנטים
         action_probs = policy(state)
         action_t = torch.argmax(action_probs)  # תמיד בוחר את הטוב ביותר
+        state_value = critic(state).item()
+        probs_dict = {
+        "Up": f"{action_probs[0][0]:.2f}",
+        "Down": f"{action_probs[0][1]:.2f}",
+        "Left": f"{action_probs[0][2]:.2f}",
+        "Right": f"{action_probs[0][3]:.2f}"
+    }
 
     last_action = action_t.item()
     done = result.done
 
-    # Optional: print progress
-    print(f"Snake length: {result.snakeLen}, Food eaten: {result.foodEaten}, Reward: {result.reward}")
+    print(f"--- Step Info ---")
+    print(f"Action Probs: {probs_dict}")
+    print(f"Critic Value: {state_value:.2f}")
+    print(f"Accessible Space: {result.accessibleSpace:.2f}, Hunger: {result.timePressure:.2f}")
+    print(f"Length: {result.snakeLen}, Reward: {result.reward:.2f}")
 
 if VISUALIZER:
     renderer.close()

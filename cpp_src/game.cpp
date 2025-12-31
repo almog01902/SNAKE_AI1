@@ -240,7 +240,7 @@
 
         //calculate the max steps for a snake in its length(we want the snake to bo optimal and will not make cirecles around the apple)
         int baseSteps = (grid.rows + grid.cols) * 2.5; 
-        int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 10);
+        int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 4);
 
         bool starved = stepsSinceLastFood>dynamicMaxSteps;
         // 3. chack the game state
@@ -291,11 +291,8 @@
             
             if (delta > 0)
             {
-                if(timePressure <0.8f)
-                {
-                    result.reward+=1.0f;
-                    minDistTOFood = currDist;
-                }
+                result.reward+=1.0f;
+                minDistTOFood = currDist;
                 
             } 
             else if (delta <= 0) result.reward -=2.5f; // getting away from food
