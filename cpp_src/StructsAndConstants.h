@@ -33,6 +33,8 @@ struct stepResult//for ai agent
 
     float timePressure;
 
+    float accessibleSpaceN, accessibleSpaceS,accessibleSpaceE,accessibleSpaceW;
+
     
 
     //Metadata

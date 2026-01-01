@@ -46,14 +46,7 @@
 
     bool Game::isGameWon()// Check if the game is won
     {
-        for(int i = 0; i < grid.rows; i++) {
-            for(int j = 0; j < grid.cols; j++) {
-                if(grid.cells[i][j] != SNAKE) {
-                    return false; // If there's any empty cell, the game is not won
-                }
-            }
-        }
-        return true; // All cells are occupied by the snake
+        return (snake.getSnakeLen() >= grid.rows * grid.cols);
     }
 
 
@@ -232,7 +225,7 @@
         result.done = false;
         result.won = false;
         result.snakeLen = snake.getSnakeLen();
-
+ 
         // 2. update game state
         AIInputHandler(action);
         snake.move();
@@ -252,16 +245,6 @@
             state = GAMEOVER;
             return result;
         }
-        
-        if (isGameWon()) {
-            result.done = true;
-            result.won = true;
-            result.reward = 2000.0f;
-            result.foodEaten = foodEaten; 
-            result.snakeLen = snake.getSnakeLen();
-            state = GAMEWON;
-            return result;
-        }
 
         //4. give the ai the state
         fillAIState(result);
@@ -274,11 +257,24 @@
         if (isFoodEaten()) {
             snake.grow();
             foodEaten++;
-            grid.placeFood();
             result.reward = 250.0f;
             stepsSinceLastFood =0;
             //calaculate min dist
             minDistTOFood = calculateManhattanDistance();
+
+                if (isGameWon()) {
+                result.done = true;
+                result.won = true;
+                result.reward = 2000.0f;
+                result.foodEaten = foodEaten; 
+                result.snakeLen = snake.getSnakeLen();
+                state = GAMEWON;
+                return result;
+                }
+                else
+                {
+                    grid.placeFood();
+                }
         } 
         else {
 
@@ -328,19 +324,41 @@
 
     // 5. fill percantege
     result.fillPercentage = (float)snake.getSnakeLen() / (float)(grid.rows * grid.cols);
-    // 6. acssesible space
-    result.accessibleSpace = calculateAccessibleSpace();
-    // 7. tails dir feom player
+    // 6. tails dir feom player
     getTailDir(result.diffX,result.diffy);
+    // 7. acssesible space
+    getAcssesibleSpace(result);
 }
 
-float Game::calculateAccessibleSpace() {
+    void Game::getAcssesibleSpace(stepResult& result)
+    {
+
+        int headX = snake.body.front().second;
+        int headY = snake.body.front().first;
+        //fill N S E W
+        result.accessibleSpaceN = getAccesibleSpaceInDir(headX, headY - 1); // North
+        result.accessibleSpaceS = getAccesibleSpaceInDir(headX, headY + 1); // South
+        result.accessibleSpaceE = getAccesibleSpaceInDir(headX + 1, headY); // East
+        result.accessibleSpaceW = getAccesibleSpaceInDir(headX - 1, headY); // West
+
+        //all the sum of space in each dir is equel to the sum in each firaction
+        result.accessibleSpace = calculateAccessibleSpace();
+    }
+
+
+    float Game::calculateAccessibleSpace() {
+
     //  y הוא rows, x הוא cols
+
     int startX = snake.body.front().second; // Column
     int startY = snake.body.front().first;  // Row
-    
+
+   
+
     int cols = grid.cols;
     int rows = grid.rows;
+
+
 
     std::vector<bool> visited(rows * cols, false);
     std::queue<std::pair<int, int>> q;
@@ -348,8 +366,8 @@ float Game::calculateAccessibleSpace() {
     q.push({startX, startY});
     visited[startY * cols + startX] = true;
     int reachableCount = 0;
-
     while (!q.empty()) {
+
         std::pair<int, int> curr = q.front();
         q.pop();
 
@@ -357,36 +375,78 @@ float Game::calculateAccessibleSpace() {
         int dy[] = {1, -1, 0, 0};
 
         for (int i = 0; i < 4; i++) {
-           
+
+        
             int nx = curr.first + dx[i];
             int ny = curr.second + dy[i];
 
             //chacking borders
+
             if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
-                int index = ny * cols + nx; 
+                int index = ny * cols + nx;
+
                 //cells[row][col] -> [ny][nx]
                 if (!visited[index] && grid.cells[ny][nx] != SNAKE) {
                     visited[index] = true;
                     q.push({nx, ny});
                     reachableCount++;
                 }
+
             }
+
         }
+
     }
+
     // calculate all empty spaces
-    int totalEmpty = 0;
-    for(int i = 0; i < rows; i++) {
-        for(int j = 0; j < cols; j++) {
-            if(grid.cells[i][j] != SNAKE) {
-                totalEmpty++;
-            }
-        }
-    }
-    
+    float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen() -1;//-1 for apple
     if (totalEmpty == 0) return 1.0f;
-    
+
     //normalized return
     return (float)reachableCount / (float)totalEmpty;
+
+}
+
+    float Game::getAccesibleSpaceInDir(int startX, int startY) {
+
+    if (startX < 0 || startX >= grid.cols || startY < 0 || startY >= grid.rows) return 0;
+    
+
+    if (grid.cells[startY][startX] == SNAKE) return 0;
+
+    std::vector<bool> visited(grid.rows * grid.cols, false);
+    std::queue<std::pair<int, int>> q;
+
+    q.push({startX, startY});
+    visited[startY * grid.cols + startX] = true;
+    int count = 0;
+
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+
+    while (!q.empty()) {
+        std::pair<int, int> curr = q.front();
+        q.pop();
+        count++;
+
+        for (int i = 0; i < 4; i++) {
+            int nx = curr.first + dx[i];
+            int ny = curr.second + dy[i];
+
+            if (nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
+                int index = ny * grid.cols + nx;
+                if (!visited[index] && grid.cells[ny][nx] != SNAKE) {
+                    visited[index] = true;
+                    q.push({nx, ny});
+                }
+            }
+        }
+    }
+
+    // calculate all empty spaces
+    float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen() -1;//-1 for apple
+    
+    return (float)count / totalEmpty;
 }
 
 
