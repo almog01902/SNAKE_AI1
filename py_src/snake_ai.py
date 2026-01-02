@@ -35,7 +35,7 @@ len_max_to_save = len_max
 
 # rollout
 for episode in range(NUM_EPISODES):
-    print("Episode:", episode)
+    print("Episode:", len(rewards_to_save))
 
     # make agents
     agents = [
@@ -114,6 +114,10 @@ for episode in range(NUM_EPISODES):
             result.isRight,
             result.fillPercentage,
             result.accessibleSpace,
+            result.accessibleSpaceN,
+            result.accessibleSpaceS,
+            result.accessibleSpaceE,
+            result.accessibleSpaceW,
             result.diffX,
             result.diffY,
             result.timePressure
@@ -187,15 +191,7 @@ for episode in range(NUM_EPISODES):
     advantages_normalized_b = advantages_normalized_b * mask_b
 
 
-    #temppp
-    # --- הגדרות לדעיכת אנטרופיה ---
-    START_ENTROPY_COEF = 0.02
-    END_ENTROPY_COEF = 0.001
-    # לפי החישוב שלך: 8 שעות * 70 הרצות = 560. נכוון ל-600 לביטחון.
-    TOTAL_DECAY_STEPS = 600
 
-    decay_rate = (END_ENTROPY_COEF / START_ENTROPY_COEF) ** (1 / TOTAL_DECAY_STEPS)
-    current_entropy_coef = max(END_ENTROPY_COEF, START_ENTROPY_COEF * (decay_rate ** episode))
     #####
     for _ in range(UPDATE_STEP):
         #calaulate the probibality
@@ -221,7 +217,7 @@ for episode in range(NUM_EPISODES):
         entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - current_entropy_coef * entropy_masked
+        loss = actor_loss + 0.5 * critic_loss - 0.02 * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()

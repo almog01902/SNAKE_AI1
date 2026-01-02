@@ -37,6 +37,11 @@ class stepResult:
     diffY: float
     timePressure : float
 
+    accessibleSpaceN : float
+    accessibleSpaceS : float
+    accessibleSpaceE : float
+    accessibleSpaceW : float
+
 
 class Game:
     def __init__(self, gridRows: int, gridCols: int, startX: int, startY: int, initialLength: int) -> None: ...
