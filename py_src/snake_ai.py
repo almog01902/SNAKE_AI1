@@ -190,7 +190,22 @@ for episode in range(NUM_EPISODES):
 
     advantages_normalized_b = advantages_normalized_b * mask_b
 
+    START_ENTROPY = 0.01       # ערך התחלתי (חקירה)
+    END_ENTROPY = 0.001        # ערך סופי (החלטיות)
+    DECAY_EPISODES = 1000      # משך הדעיכה באפיזודות
+    START_DECAY_EPISODE = 1950 # מתי להתחיל להוריד (נתנו לו 100 אפיזודות חופש)
 
+    # --- 1. חישוב מקדם האנטרופיה (בתוך הלולאה הראשית, לפני ה-Update) ---
+    if episode < START_DECAY_EPISODE:
+        current_entropy_coef = START_ENTROPY
+    else:
+        progress = min(1.0, (episode - START_DECAY_EPISODE) / DECAY_EPISODES)
+        current_entropy_coef = START_ENTROPY - (progress * (START_ENTROPY - END_ENTROPY))
+        current_entropy_coef = max(current_entropy_coef, END_ENTROPY)
+
+    # הדפסה לבקרה פעם ב-20 אפיזודות
+    if episode % 20 == 0:
+        print(f"--- Episode {episode} | Entropy Coef: {current_entropy_coef:.6f} ---")
 
     #####
     for _ in range(UPDATE_STEP):
@@ -217,7 +232,7 @@ for episode in range(NUM_EPISODES):
         entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy_masked
+        loss = actor_loss + 0.5 * critic_loss - current_entropy_coef * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()
