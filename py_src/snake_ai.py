@@ -193,17 +193,19 @@ for episode in range(NUM_EPISODES):
     START_ENTROPY = 0.02       # ערך התחלתי (חקירה)
     END_ENTROPY = 0.001        # ערך סופי (החלטיות)
     DECAY_EPISODES = 1000      # משך הדעיכה באפיזודות
-    START_DECAY_EPISODE = 1980 # מתי להתחיל להוריד (נתנו לו 100 אפיזודות חופש)
+    START_DECAY_EPISODE = 2003 # מתי להתחיל להוריד (נתנו לו 100 אפיזודות חופש)
 
+    current_real_episode = len(rewards_to_save)
     # --- 1. חישוב מקדם האנטרופיה (בתוך הלולאה הראשית, לפני ה-Update) ---
-    if episode < START_DECAY_EPISODE:
+    if current_real_episode < START_DECAY_EPISODE:
         current_entropy_coef = START_ENTROPY
     else:
-        progress = min(1.0, (episode - START_DECAY_EPISODE) / DECAY_EPISODES)
+        progress = min(1.0, (current_real_episode - START_DECAY_EPISODE) / DECAY_EPISODES)
         current_entropy_coef = START_ENTROPY - (progress * (START_ENTROPY - END_ENTROPY))
         current_entropy_coef = max(current_entropy_coef, END_ENTROPY)
+        print(f"Entropy Coef: {current_entropy_coef:.6f}")
 
-    print("Entropy Coef: {current_entropy_coef:.6f} ---")
+    
 
     #####
     for _ in range(UPDATE_STEP):

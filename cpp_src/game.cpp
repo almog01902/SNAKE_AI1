@@ -225,6 +225,9 @@
         result.done = false;
         result.won = false;
         result.snakeLen = snake.getSnakeLen();
+        auto oldHead = snake.body.front();
+        int oldHeadY = oldHead.first;
+        int oldHeadX = oldHead.second;
  
         // 2. update game state
         AIInputHandler(action);
@@ -281,30 +284,43 @@
         } 
         else {
 
-            //punishment for each time the snake doesnt eat
+            //1.punishment for each time the snake doesnt eat
             result.reward = -0.1f * (1.0f + timePressure);
-            // reaward or punish based on the ai disicisions  
+            //2. reaward on getting close to the apple
             float currDist = calculateManhattanDistance();
             float delta = minDistTOFood - currDist;
             
-            if (delta > 0)
-            {
+            if (delta > 0){
+
                 result.reward+=1.0f;
-                minDistTOFood = currDist;
-                
+                minDistTOFood = currDist;  
             } 
-            else if (delta <= 0) result.reward -=1.5f; // getting away from food
-            
-            
+
+            float spaceGap = 1.0f - result.accessibleSpace;
+            float spacePenalty = 0.0f;
+
+            // נעניש רק אם השטח הנגיש באמת נמוך (מתחת ל-40%)
+            // שימוש בחזקה שלישית (pow 3) הופך את העונש לסלחני מאוד בחצי לוח וקטלני בסוף
+            if (result.accessibleSpace < 0.4f) {
+                spacePenalty = pow(spaceGap, 3) * 15.0f;
+            }
+
+            // --- 4. בונוס מרדף זנב (היציאה מהחנק) ---
+            auto newHead = snake.body.front();
+            auto tail = snake.body.back(); // הזנב הנוכחי
+            int oldDistToTail = abs(oldHeadX - (int)tail.second) + abs(oldHeadY - (int)tail.first);
+            int newDistToTail = abs((int)newHead.second - (int)tail.second) + abs((int)newHead.first - (int)tail.first);
+
+            if (result.accessibleSpace < 0.4f && newDistToTail < oldDistToTail) {
+                // הוא במקום צפוף אבל הולך לזנב? נבטל את העונש
+                spacePenalty *= 0.1f; 
+            }
+
+            result.reward -= spacePenalty;
         }
 
 
-        float spaceGap = 1.0f - result.accessibleSpace;
-
         
-        float spacePenalty = pow(spaceGap, 2) * 5.0f;
-
-        result.reward -= spacePenalty;
 
         result.foodEaten = foodEaten;
         // 6. update the grid and return result
