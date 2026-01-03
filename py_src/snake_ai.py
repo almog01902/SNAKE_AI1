@@ -232,7 +232,7 @@ for episode in range(NUM_EPISODES):
         entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - current_entropy_coef * entropy_masked
+        loss = actor_loss + 0.5 * critic_loss - 0.02 * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()

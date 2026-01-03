@@ -53,6 +53,7 @@ class Game
     float calculateAccessibleSpace();//function that show hoe mucw space we have to move in all directions
     void getTailDir(float& outX,float& outY);//get the distance between the head and the tail
     void getAcssesibleSpace(stepResult& result);//fill the data result for acessible (N S W E) space in result
+    void fillSafeDeadState(stepResult& result);
 
 
     //---debug functions---

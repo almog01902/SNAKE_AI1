@@ -241,7 +241,9 @@
             result.done = true;
             result.reward = -1000.0f; 
             result.foodEaten = foodEaten; 
+            
             result.snakeLen = snake.getSnakeLen(); 
+            fillSafeDeadState(result);
             state = GAMEOVER;
             return result;
         }
@@ -260,7 +262,7 @@
             result.reward = 250.0f;
             stepsSinceLastFood =0;
             //calaculate min dist
-            minDistTOFood = calculateManhattanDistance();
+            
 
                 if (isGameWon()) {
                 result.done = true;
@@ -274,6 +276,7 @@
                 else
                 {
                     grid.placeFood();
+                    minDistTOFood = calculateManhattanDistance();
                 }
         } 
         else {
@@ -290,7 +293,7 @@
                 minDistTOFood = currDist;
                 
             } 
-            else if (delta <= 0) result.reward -=2.5f; // getting away from food
+            else if (delta <= 0) result.reward -=1.0f; // getting away from food
             
             
         }
@@ -480,5 +483,33 @@ float Game::calculateManhattanDistance() {
         Sleep(SNAKE_SPEED); // Sleep for snake speed
         grid.draw(); // Draw the grid
     }
-        
+    
+
+    void Game::fillSafeDeadState(stepResult& result) {
+    // איפוס מיקומי ראש ומרחק אוכל
+    result.headX_norm = 0.0f;
+    result.headY_norm = 0.0f;
+    result.distFoodX  = 0.0f;
+    result.distFoodY  = 0.0f;
+
+    // איפוס הראדאר (8 כיוונים)
+    result.distN = 0.0f; result.distS = 0.0f; result.distE = 0.0f; result.distW = 0.0f;
+    result.distNW = 0.0f; result.distNE = 0.0f; result.distSW = 0.0f; result.distSE = 0.0f;
+
+    // איפוס כיוון נוכחי
+    result.isUp = 0.0f; result.isDown = 0.0f; result.isLeft = 0.0f; result.isRight = 0.0f;
+
+    // איפוס מדדי שטח (הכי חשוב כדי למנוע קריסה של Flood Fill)
+    result.accessibleSpace = 0.0f;
+    result.accessibleSpaceN = 0.0f;
+    result.accessibleSpaceS = 0.0f;
+    result.accessibleSpaceE = 0.0f;
+    result.accessibleSpaceW = 0.0f;
+
+    // איפוס נתונים נוספים
+    result.fillPercentage = 0.0f;
+    result.timePressure = 1.0f; // במוות מרעב הלחץ הוא מקסימלי
+    result.diffX = 0.0f;
+    result.diffy = 0.0f;
+}
     
