@@ -217,7 +217,8 @@
 }
     
 
-    stepResult Game::step(int action) {
+    stepResult Game::step(int action) 
+    {
         stepResult result;
         
         //1. initilize stats
@@ -301,26 +302,49 @@
 
             // נעניש רק אם השטח הנגיש באמת נמוך (מתחת ל-40%)
             // שימוש בחזקה שלישית (pow 3) הופך את העונש לסלחני מאוד בחצי לוח וקטלני בסוף
-            if (result.accessibleSpace < 0.4f) {
-                spacePenalty = pow(spaceGap, 3) * 15.0f;
+            if (result.accessibleSpace < 0.45f) {
+
+                auto newHead = snake.body.front();
+                auto tail = snake.body.back(); // המיקום הנוכחי של הזנב
+
+                // חישוב מרחקים (Manhattan Distance)
+                int oldDistToTail = abs(oldHeadX - (int)tail.second) + abs(oldHeadY - (int)tail.first);
+                int newDistToTail = abs((int)newHead.second - (int)tail.second) + abs((int)newHead.first - (int)tail.first);
+                // הוספת הבוליאן החסר: האם הצעד קירב אותנו לזנב?
+                bool movingToTail = (newDistToTail < oldDistToTail);
+
+                float gridTotalCells = (float)(grid.rows * grid.cols);
+                float freeSquares = result.accessibleSpace * gridTotalCells;
+                
+                // בדיקת "מרחב הישרדות": האם יש מספיק מקום לזגזג עד שהזנב יתפנה?
+                // (distToTail הוא כמות הצעדים המינימלית שהזנב צריך לעשות)
+                bool hasSurvivalSpace = (freeSquares > (newDistToTail + 2));
+
+                float spaceGap = 1.0f - result.accessibleSpace;
+                float spacePenalty = pow(spaceGap, 3) * 20.0f;
+
+                if (movingToTail && hasSurvivalSpace) {
+                    // המצב האידיאלי: הולך לזנב ויש לו "חמצן" לזגזג
+                    spacePenalty *= 0.05f; 
+                } 
+                else if (!movingToTail && hasSurvivalSpace) {
+                    // הולך לזנב אבל החלל נהיה מסוכן מדי (חור קטן)
+                    spacePenalty *= 0.5f; 
+                }
+                else if(movingToTail && !hasSurvivalSpace)
+                {
+                    //we keep this the same way for now becuse he will probably wont survive
+                }
+                else
+                {
+                    //worst situation
+                    spacePenalty*=1.2f;
+                }
+
+                result.reward -= spacePenalty;
             }
 
-            // --- 4. בונוס מרדף זנב (היציאה מהחנק) ---
-            auto newHead = snake.body.front();
-            auto tail = snake.body.back(); // הזנב הנוכחי
-            int oldDistToTail = abs(oldHeadX - (int)tail.second) + abs(oldHeadY - (int)tail.first);
-            int newDistToTail = abs((int)newHead.second - (int)tail.second) + abs((int)newHead.first - (int)tail.first);
-
-            if (result.accessibleSpace < 0.4f && newDistToTail < oldDistToTail) {
-                // הוא במקום צפוף אבל הולך לזנב? נבטל את העונש
-                spacePenalty *= 0.1f; 
-            }
-
-            result.reward -= spacePenalty;
         }
-
-
-        
 
         result.foodEaten = foodEaten;
         // 6. update the grid and return result
