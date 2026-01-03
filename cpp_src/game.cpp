@@ -293,16 +293,16 @@
                 minDistTOFood = currDist;
                 
             } 
-            else if (delta <= 0) result.reward -=1.0f; // getting away from food
+            else if (delta <= 0) result.reward -=1.5f; // getting away from food
             
             
         }
 
 
         float spaceGap = 1.0f - result.accessibleSpace;
-        // pow(gap, 2) מבטיח שפער של 0.1 ייתן עונש אפסי (0.15), 
-        // אבל פער של 0.76 (כמו שקרה לך בסוף) ייתן עונש ענקי של כ-8.6
-        float spacePenalty = pow(spaceGap, 2) * 15.0f;
+
+        
+        float spacePenalty = pow(spaceGap, 2) * 5.0f;
 
         result.reward -= spacePenalty;
 
