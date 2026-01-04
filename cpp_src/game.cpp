@@ -337,19 +337,25 @@
                 float spaceGap = 1.0f - result.accessibleSpace;
                 float spacePenalty = pow(spaceGap, 3) * 20.0f;
 
-                if (survivalRatio > 1.1f) {
-                    // שטח בטוח - הנחה משמעותית
+                if (survivalRatio > 1.2f) { // העלינו מ-1.1 ל-1.2 ליתר ביטחון
+                    // רק אם היחס ממש טוב, נאפשר לו "לרוץ" לזנב
                     spacePenalty *= movingToTail ? 0.05f : 0.3f;
                 } 
+                else if (survivalRatio > 0.9f) { 
+                    // באזור ה"דמדומים" (כמו הריבוע 4x4), אנחנו לא נותנים הנחה על ריצה לזנב!
+                    // זה יכריח אותו לחפש תנועה שמשפרת את ה-Ratio (זיגזג) במקום מרדף עיוור
+                    spacePenalty *= 0.5f; 
+                }
                 else {
-                    // מלכודת או חנק - אין הנחה!
-                    if (!movingToTail) spacePenalty *= 1.2f;
+                    // מצב קריטי - עונש כבד מאוד
+                    if (!movingToTail) spacePenalty *= 1.5f;
                 }
 
-                if (survivalRatio > 1.0f && survivalRatio >= oldSurvivalRatio) {
-                // "בונוס זיגזג" - מקטין את עונש השטח עוד יותר
-                spacePenalty *= 0.8f; 
+                // הבונוס על שיפור היחס (הזיגזג) - חשוב להשאיר אותו חזק
+                if (survivalRatio >= oldSurvivalRatio && survivalRatio > 0.8f) {
+                    spacePenalty *= 0.6f; // הגדלנו את הבונוס מ-0.8 ל-0.7
                 }
+
                 result.reward -= spacePenalty;
             }
 
