@@ -13,6 +13,7 @@ import pickle
 from config import *
 from utils import *
 from model.actor_critic import make_models
+from entropy_decline import EntropyScheduler
 
 
 
@@ -191,7 +192,14 @@ for episode in range(NUM_EPISODES):
     advantages_normalized_b = advantages_normalized_b * mask_b
 
 
+    START_EPISODE = 3220
+    DURATION = 1000  # דעיכה לאורך 1000 פרקים
+    START_ENT = 0.02
+    END_ENT = 0.001   # ערך סופי נמוך לשיפור הביצועים
 
+    scheduler = EntropyScheduler(START_ENT, END_ENT, START_EPISODE, DURATION)
+    epis = len(rewards_to_save)
+    print(f"current entropy cuff:{scheduler.get_ent_coeff(epis):.6f} ")
     
 
     #####
@@ -219,7 +227,7 @@ for episode in range(NUM_EPISODES):
         entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - CURR_ENTR* entropy_masked
+        loss = actor_loss + 0.5 * critic_loss - scheduler.get_ent_coeff(epis) * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()
@@ -238,6 +246,7 @@ for episode in range(NUM_EPISODES):
     print("max len is :", max_len)
     len_max_to_save.append(max_len)
     print(f"entropy is : {entropy_masked.item():.4f}")
+    print(f"loss is :{loss.item():.4f}")
     
 
     #save the learning process

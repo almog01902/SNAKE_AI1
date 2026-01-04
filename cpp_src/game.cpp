@@ -217,168 +217,126 @@
 }
     
 
-    stepResult Game::step(int action) 
-    {
-        stepResult result;
-        
-        //1. initilize stats
-        result.reward = 0.0f;
-        result.done = false;
-        result.won = false;
-        result.snakeLen = snake.getSnakeLen();
-        auto oldHead = snake.body.front();
-        auto oldTail = snake.body.back();
-        
- 
-        // 2. update game state
-        AIInputHandler(action);
-        snake.move();
-        stepsSinceLastFood++;
+stepResult Game::step(int action) 
+{
+    stepResult result;
+    
+    // 1. אתחול נתונים בסיסיים
+    result.reward = 0.0f;
+    result.done = false;
+    result.won = false;
+    result.snakeLen = snake.getSnakeLen();
+    
+    // 2. עדכון מצב המשחק
+    AIInputHandler(action);
+    snake.move();
+    stepsSinceLastFood++;
 
-        //calculate the max steps for a snake in its length(we want the snake to bo optimal and will not make cirecles around the apple)
-        int baseSteps = (grid.rows + grid.cols) * 2.5; 
-        int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 3);
+    // חישוב starvation
+    int baseSteps = (grid.rows + grid.cols) * 2.5; 
+    int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 3);
+    bool starved = stepsSinceLastFood > dynamicMaxSteps;
 
-        bool starved = stepsSinceLastFood>dynamicMaxSteps;
-
-        
-        
-        // 3. chack the game state
-        if (isGameOver()|| starved) {
-            result.done = true;
-            result.reward = -1000.0f; 
-            result.foodEaten = foodEaten; 
-            
-            result.snakeLen = snake.getSnakeLen(); 
-            fillSafeDeadState(result);
-            state = GAMEOVER;
-            return result;
-        }
-
-        //4. give the ai the state
-        fillAIState(result);
-
-
-        //calculate stats besed on state
-        float timePressure = (float)stepsSinceLastFood / (float)dynamicMaxSteps;
-
-        result.timePressure = timePressure;
-
-        float gridTotalCells = (float)(grid.rows * grid.cols);
-        float freeSquares = result.accessibleSpace * gridTotalCells;
-
-        
-        auto newHead = snake.body.front();
-        auto currentTail = snake.body.back();
-        int oldDistToTail = abs((int)oldHead.second - (int)oldTail.second) + abs((int)oldHead.first - (int)oldTail.first);
-        int newDistToTail = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
-        bool movingToTail = (newDistToTail < oldDistToTail);
-        // הנתון הקריטי שהוספת ל-BFS (זמן הפינוי האמיתי של השטח)
-        // אנחנו לוקחים את המקסימום בין המרחק האווירי לבין כמות הסגמנטים הכלואים
-        int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
-        float survivalRatio = (float)freeSquares / (float)(actualTailDelay + 2.0f);
-
-        int distEndToTail = abs((int)result.furthestPoint.second - (int)currentTail.first) + 
-                        abs((int)result.furthestPoint.first - (int)currentTail.second);
-
-        float continuityFactor = 1.0f / (float)(distEndToTail + 1);
-
-        // נוסחת ה-Ratio: חמצן מול זמן המתנה
-        
-        float oldSurvivalRatio = lastStepRatio; 
-        lastStepRatio = survivalRatio; // עדכון ה-Ratio לצעד הבא
-
-        // 5. rewards
-        if (isFoodEaten()) {
-            snake.grow();
-            foodEaten++;
-            result.reward = 250.0f;
-            stepsSinceLastFood =0;
-            //calaculate min dist
-            
-
-                if (isGameWon()) {
-                result.done = true;
-                result.won = true;
-                result.reward = 2000.0f;
-                result.foodEaten = foodEaten; 
-                result.snakeLen = snake.getSnakeLen();
-                state = GAMEWON;
-                return result;
-                }
-                else
-                {
-                    grid.placeFood();
-                    minDistTOFood = calculateManhattanDistance();
-                }
-        } 
-        else {
-
-            //1.punishment for each time the snake doesnt eat
-            result.reward = -0.1f * (1.0f + timePressure);
-            //2. reaward on getting close to the apple
-            float currDist = calculateManhattanDistance();
-            float delta = minDistTOFood - currDist;
-            
-            if (delta > 0){
-
-                result.reward+=1.0f;
-                minDistTOFood = currDist;  
-            } 
-            else
-            {
-                if (result.fillPercentage < 0.25f)
-                {
-                    result.reward -=1.5f;
-                }
-                
-            }
-
-            // נעניש רק אם השטח הנגיש באמת נמוך (מתחת ל-40%)
-            // שימוש בחזקה שלישית (pow 3) הופך את העונש לסלחני מאוד בחצי לוח וקטלני בסוף
-            if (result.accessibleSpace < 0.45f) {
-
-               // 1. חישוב בסיסי של העונש (לפי גודל החור שהנחש נמצא בו)
-                float spaceGap = 1.0f - result.accessibleSpace;
-                float spacePenalty = pow(spaceGap, 3) * 20.0f;
-
-                // 2. בדיקת המצב האסטרטגי: האם הוא ב"פיתול בטוח"?
-                // תנאי ה"גם וגם": גם קרוב לזנב וגם יחס שרידות טוב
-                bool isCoilingCorrectly = (continuityFactor > 0.8f && survivalRatio > 1.1f);
-
-                if (isCoilingCorrectly) {
-                    // מצב אידיאלי: הוא צפוף אבל בזיגזג מושלם לעבר הזנב
-                    // אנחנו נותנים "חנינה" של 90% מהעונש
-                    spacePenalty *= 0.1f; 
-                } 
-                else {
-                    // מצב לא אידיאלי: הוא בתוך חור אבל לא מנווט נכון לזנב
-                    if (survivalRatio > 0.9f) {
-                        // מצב ביניים: הוא מנסה, אז העונש גדל ככל שהוא רחוק מהזנב
-                        spacePenalty *= (1.5f - continuityFactor); 
-                    }
-                    else {
-                        // מצב פאניקה: הוא סגור בשטח קטן בלי יציאה קרובה - עונש כבד!
-                        spacePenalty *= 2.0f; 
-                    }
-                }
-
-                // 3. בונוס מומנטום: אם הוא הצליח לשפר את המצב שלו מהצעד הקודם
-                if (survivalRatio >= oldSurvivalRatio && survivalRatio > 0.7f) {
-                    spacePenalty *= 0.6f; // הנחה של 40% על העונש
-                }
-
-                // 4. החלת העונש הסופי על ה-Reward
-                result.reward -= spacePenalty;
-            }
-
-        }
-
-        result.foodEaten = foodEaten;
-        // 6. update the grid and return result
-        grid.update(snake);
+    // 3. בדיקת Game Over (חוסך את כל המשך הפונקציה אם הנחש מת)
+    if (isGameOver() || starved) {
+        result.done = true;
+        result.reward = -1000.0f; 
+        result.foodEaten = foodEaten; 
+        result.snakeLen = snake.getSnakeLen(); 
+        fillSafeDeadState(result);
+        state = GAMEOVER;
         return result;
     }
+
+    // 4. מילוי מצב ה-AI (כולל ה-BFS הראשי שנותן לנו את ה-accessibleSpace)
+    fillAIState(result);
+    result.timePressure = (float)stepsSinceLastFood / (float)dynamicMaxSteps;
+
+    // 5. לוגיקת פרסים (Rewards)
+    if (isFoodEaten()) {
+        // --- מסלול "אכילה": מהיר וקל לחישוב ---
+        snake.grow();
+        foodEaten++;
+        result.reward = 250.0f;
+        stepsSinceLastFood = 0;
+
+        if (isGameWon()) {
+            result.done = true;
+            result.won = true;
+            result.reward = 2000.0f;
+            state = GAMEWON;
+            return result;
+        } else {
+            grid.placeFood();
+            minDistTOFood = calculateManhattanDistance();
+        }
+        // מאפסים את היחס לצעד הבא כדי שלא תהיה קפיצה מוזרה
+        lastStepRatio = 2.0f; 
+    } 
+    else {
+        // --- מסלול "תנועה רגילה": כאן נבצע את החישובים הכבדים רק אם צריך ---
+        
+        // עונש זמן ובונוס התקרבות בסיסי
+        result.reward = -0.1f * (1.0f + result.timePressure);
+        float currDist = calculateManhattanDistance();
+        float delta = minDistTOFood - currDist;
+        
+        if (delta > 0) {
+            result.reward += 1.0f;
+            minDistTOFood = currDist;  
+        } else if (result.fillPercentage < 0.25f) {
+            result.reward -= 1.5f;
+        }
+
+        // לוגיקת עונש שטח - החלק הכבד!
+        if (result.accessibleSpace < 0.45f) {
+            
+            // רק עכשיו, כשיש לחץ שטח, נחשב את המדדים הגיאומטריים המורכבים
+            auto newHead = snake.body.front();
+            auto currentTail = snake.body.back();
+            float gridTotalCells = (float)(grid.rows * grid.cols);
+            float freeSquares = result.accessibleSpace * gridTotalCells;
+
+            // מרחקים לזנב
+            int newDistToTail = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
+            int distEndToTail = abs((int)result.furthestPoint.second - (int)currentTail.second) + abs((int)result.furthestPoint.first - (int)currentTail.first);
+            
+            // חישוב יחס שרידות (כולל קריאה ל-BFS המשני bodySegmentsInArea)
+            int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
+            float survivalRatio = freeSquares / (actualTailDelay + 2.0f);
+            float continuityFactor = 1.0f / (distEndToTail + 1.0f);
+
+            // חישוב העונש
+            float spaceGap = 1.0f - result.accessibleSpace;
+            float spacePenalty = pow(spaceGap, 3) * 20.0f;
+
+            if (continuityFactor > 0.8f && survivalRatio > 1.1f) {
+                spacePenalty *= 0.1f; 
+            } 
+            else {
+                if (survivalRatio > 0.9f) {
+                    spacePenalty *= (1.5f - continuityFactor); 
+                } else {
+                    spacePenalty *= 2.0f; 
+                }
+            }
+
+            // בונוס שיפור (מומנטום)
+            if (survivalRatio >= lastStepRatio && survivalRatio > 0.7f) {
+                spacePenalty *= 0.6f;
+            }
+
+            result.reward -= spacePenalty;
+            lastStepRatio = survivalRatio; // עדכון רק כשיש חישוב
+        } else {
+            lastStepRatio = 2.0f; // שטח פתוח - יחס "מושלם"
+        }
+    }
+
+    result.foodEaten = foodEaten;
+    grid.update(snake);
+    return result;
+}
     
     void Game::fillAIState(stepResult& result) {
     // 1. normalized place for the head

@@ -1,5 +1,8 @@
 #ifndef STRUCTS_AND_CONSTANTS_H
 #define STRUCTS_AND_CONSTANTS_H
+#include <utility> 
+
+
 // Constants for directions and game states and grid elements
 enum Direction { UP, RIGHT, DOWN, LEFT };// Directions for the snake movement
 enum GameState { MENU, PLAYING, GAMEOVER, GAMEWON };// Game states for the game
@@ -35,7 +38,7 @@ struct stepResult//for ai agent
 
     float accessibleSpaceN, accessibleSpaceS,accessibleSpaceE,accessibleSpaceW;
 
-    pair<int,int> furthestPoint;//not an input use for calculate data
+    std::pair<int,int> furthestPoint;//not an input use for calculate data
 
     
 
@@ -49,7 +52,7 @@ struct stepResult//for ai agent
 
 struct BFSResult {
     float count = 0;
-    pair<int, int> lastPoint;
+    std::pair<int, int> lastPoint;
 };
 
 

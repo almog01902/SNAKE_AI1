@@ -66,9 +66,6 @@ class Game
     vector<vector<int>> getGrid();
 };
 
-struct BFSResult {
-    float count = 0;
-    pair<int, int> lastPoint;
-};
+
 
 #endif // Game_H
