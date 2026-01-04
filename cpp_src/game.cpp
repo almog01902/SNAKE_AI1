@@ -446,27 +446,36 @@ stepResult Game::step(int action)
 
 }
 
-    float Game::getAccesibleSpaceInDir(int startX, int startY) {
-
-    if (startX < 0 || startX >= grid.cols || startY < 0 || startY >= grid.rows) return 0;
+float Game::predictFutureSpace(int nextX, int nextY) {
+    // 1. בדיקת גבולות (למנוע קריסה)
+    if (nextX < 0 || nextX >= grid.cols || nextY < 0 || nextY >= grid.rows) return 0.0f;
     
-
-    if (grid.cells[startY][startX] == SNAKE) return 0;
+    // 2. בדיקת מוות מיידי (האם המשבצת תפוסה על ידי הגוף, למעט הזנב שיזוז)
+    auto tailPos = snake.body.back(); // {Y, X}
+    if (grid.cells[nextY][nextX] == SNAKE && !(nextX == tailPos.second && nextY == tailPos.first)) {
+        return 0.0f;
+    }
 
     std::vector<bool> visited(grid.rows * grid.cols, false);
     std::queue<std::pair<int, int>> q;
 
-    q.push({startX, startY});
-    visited[startY * grid.cols + startX] = true;
+    q.push({nextX, nextY});
+    visited[nextY * grid.cols + nextX] = true;
     int count = 0;
-
-    int dx[] = {0, 0, 1, -1};
-    int dy[] = {1, -1, 0, 0};
+    bool canReachTail = false;
 
     while (!q.empty()) {
-        std::pair<int, int> curr = q.front();
+        std::pair<int, int> curr = q.front(); // {X, Y}
         q.pop();
         count++;
+
+        // בדיקה אם הגענו לזנב (נתיב מילוט)
+        if (curr.first == tailPos.second && curr.second == tailPos.first) {
+            canReachTail = true;
+        }
+
+        int dx[] = {0, 0, 1, -1};
+        int dy[] = {1, -1, 0, 0};
 
         for (int i = 0; i < 4; i++) {
             int nx = curr.first + dx[i];
@@ -474,7 +483,8 @@ stepResult Game::step(int action)
 
             if (nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
                 int index = ny * grid.cols + nx;
-                if (!visited[index] && grid.cells[ny][nx] != SNAKE) {
+                // תנאי כניסה למשבצת: פנויה או שהיא המקום שבו הזנב נמצא כרגע
+                if (!visited[index] && (grid.cells[ny][nx] != SNAKE || (nx == tailPos.second && ny == tailPos.first))) {
                     visited[index] = true;
                     q.push({nx, ny});
                 }
@@ -482,11 +492,14 @@ stepResult Game::step(int action)
         }
     }
 
-    // calculate all empty spaces
-    float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen() -1;//-1 for apple
+    float snakeLen = (float)snake.getSnakeLen();
+    float totalEmpty = (float)(grid.rows * grid.cols) - snakeLen -1;
     if (totalEmpty <= 0.5f) return 1.0f;
 
-    return (float)count / totalEmpty;
+    float spaceRatio = (float)count / totalEmpty;
+
+
+    return spaceRatio;
 }
 
 
