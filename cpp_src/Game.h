@@ -21,6 +21,7 @@ class Game
     bool isAI;
     float minDistTOFood;
     int stepsSinceLastFood =0;
+    float lastStepRatio = 1.0f;
     Snake snake;
     Grid grid;
 
@@ -54,6 +55,7 @@ class Game
     void getTailDir(float& outX,float& outY);//get the distance between the head and the tail
     void getAcssesibleSpace(stepResult& result);//fill the data result for acessible (N S W E) space in result
     void fillSafeDeadState(stepResult& result);
+    int bodySegmentsInArea(pair<int,int> head);
 
 
     //---debug functions---

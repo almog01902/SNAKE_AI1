@@ -227,8 +227,8 @@
         result.won = false;
         result.snakeLen = snake.getSnakeLen();
         auto oldHead = snake.body.front();
-        int oldHeadY = oldHead.first;
-        int oldHeadX = oldHead.second;
+        auto oldTail = snake.body.back();
+        
  
         // 2. update game state
         AIInputHandler(action);
@@ -240,6 +240,9 @@
         int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 3);
 
         bool starved = stepsSinceLastFood>dynamicMaxSteps;
+
+        
+        
         // 3. chack the game state
         if (isGameOver()|| starved) {
             result.done = true;
@@ -255,9 +258,31 @@
         //4. give the ai the state
         fillAIState(result);
 
+
+        //calculate stats besed on state
         float timePressure = (float)stepsSinceLastFood / (float)dynamicMaxSteps;
 
         result.timePressure = timePressure;
+
+        float gridTotalCells = (float)(grid.rows * grid.cols);
+        float freeSquares = result.accessibleSpace * gridTotalCells;
+
+        
+        auto newHead = snake.body.front();
+        auto currentTail = snake.body.back();
+        int oldDistToTail = abs((int)oldHead.second - (int)oldTail.second) + abs((int)oldHead.first - (int)oldTail.first);
+        int newDistToTail = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
+        bool movingToTail = (newDistToTail < oldDistToTail);
+        // הנתון הקריטי שהוספת ל-BFS (זמן הפינוי האמיתי של השטח)
+        // אנחנו לוקחים את המקסימום בין המרחק האווירי לבין כמות הסגמנטים הכלואים
+
+        int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
+
+        // נוסחת ה-Ratio: חמצן מול זמן המתנה
+        float survivalRatio = (float)freeSquares / (float)(actualTailDelay + 2.0f);
+
+        float oldSurvivalRatio = lastStepRatio; 
+        lastStepRatio = survivalRatio; // עדכון ה-Ratio לצעד הבא
 
         // 5. rewards
         if (isFoodEaten()) {
@@ -305,50 +330,26 @@
                 
             }
 
-            float spaceGap = 1.0f - result.accessibleSpace;
-            float spacePenalty = 0.0f;
-
             // נעניש רק אם השטח הנגיש באמת נמוך (מתחת ל-40%)
             // שימוש בחזקה שלישית (pow 3) הופך את העונש לסלחני מאוד בחצי לוח וקטלני בסוף
             if (result.accessibleSpace < 0.45f) {
 
-                auto newHead = snake.body.front();
-                auto tail = snake.body.back(); // המיקום הנוכחי של הזנב
-
-                // חישוב מרחקים (Manhattan Distance)
-                int oldDistToTail = abs(oldHeadX - (int)tail.second) + abs(oldHeadY - (int)tail.first);
-                int newDistToTail = abs((int)newHead.second - (int)tail.second) + abs((int)newHead.first - (int)tail.first);
-                // הוספת הבוליאן החסר: האם הצעד קירב אותנו לזנב?
-                bool movingToTail = (newDistToTail < oldDistToTail);
-
-                float gridTotalCells = (float)(grid.rows * grid.cols);
-                float freeSquares = result.accessibleSpace * gridTotalCells;
-                
-                // בדיקת "מרחב הישרדות": האם יש מספיק מקום לזגזג עד שהזנב יתפנה?
-                // (distToTail הוא כמות הצעדים המינימלית שהזנב צריך לעשות)
-                bool hasSurvivalSpace = (freeSquares > (newDistToTail + 2));
-
                 float spaceGap = 1.0f - result.accessibleSpace;
                 float spacePenalty = pow(spaceGap, 3) * 20.0f;
 
-                if (movingToTail && hasSurvivalSpace) {
-                    // המצב האידיאלי: הולך לזנב ויש לו "חמצן" לזגזג
-                    spacePenalty *= 0.05f; 
+                if (survivalRatio > 1.1f) {
+                    // שטח בטוח - הנחה משמעותית
+                    spacePenalty *= movingToTail ? 0.05f : 0.3f;
                 } 
-                else if (!movingToTail && hasSurvivalSpace) {
-                    // הולך לזנב אבל החלל נהיה מסוכן מדי (חור קטן)
-                    spacePenalty *= 0.5f; 
-                }
-                else if(movingToTail && !hasSurvivalSpace)
-                {
-                    //we keep this the same way for now becuse he will probably wont survive
-                }
-                else
-                {
-                    //worst situation
-                    spacePenalty*=1.2f;
+                else {
+                    // מלכודת או חנק - אין הנחה!
+                    if (!movingToTail) spacePenalty *= 1.2f;
                 }
 
+                if (survivalRatio > 1.0f && survivalRatio >= oldSurvivalRatio) {
+                // "בונוס זיגזג" - מקטין את עונש השטח עוד יותר
+                spacePenalty *= 0.8f; 
+                }
                 result.reward -= spacePenalty;
             }
 
@@ -559,5 +560,53 @@ float Game::calculateManhattanDistance() {
     result.timePressure = 1.0f; // במוות מרעב הלחץ הוא מקסימלי
     result.diffX = 0.0f;
     result.diffy = 0.0f;
+}
+
+int Game::bodySegmentsInArea(std::pair<int, int> newHead) {
+    int bodySegments = 0;
+    int startY = newHead.first;
+    int startX = newHead.second;
+
+    std::queue<std::pair<int, int>> q;
+    std::vector<bool> visited(grid.rows * grid.cols, false);
+
+    // נסמן את הראש כביכול כ"ביקרנו בו" כדי שלא נחזור אליו
+    visited[startY * grid.cols + startX] = true;
+
+    // נכניס לתור רק שכנים שהם באמת ריקים מסביב לראש
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+    for(int i=0; i<4; i++) {
+        int nx = startX + dx[i];
+        int ny = startY + dy[i];
+        if(nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
+            if(grid.cells[ny][nx] == EMPTY) {
+                q.push({nx, ny});
+                visited[ny * grid.cols + nx] = true;
+            } else if(grid.cells[ny][nx] == SNAKE) {
+                bodySegments++; // סגמנט שנוגע ישירות בראש
+            }
+        }
+    }
+
+    while(!q.empty()) {
+        auto curr = q.front(); q.pop();
+        int cx = curr.first; int cy = curr.second;
+
+        for(int i = 0; i < 4; i++) {
+            int nx = cx + dx[i]; int ny = cy + dy[i];
+            if(nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
+                int idx = ny * grid.cols + nx;
+                if(grid.cells[ny][nx] == EMPTY && !visited[idx]) {
+                    visited[idx] = true;
+                    q.push({nx, ny});
+                } 
+                else if(grid.cells[ny][nx] == SNAKE) {
+                    bodySegments++;
+                }
+            }
+        }
+    }
+    return bodySegments;
 }
     
