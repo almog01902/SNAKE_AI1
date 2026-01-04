@@ -275,12 +275,16 @@
         bool movingToTail = (newDistToTail < oldDistToTail);
         // הנתון הקריטי שהוספת ל-BFS (זמן הפינוי האמיתי של השטח)
         // אנחנו לוקחים את המקסימום בין המרחק האווירי לבין כמות הסגמנטים הכלואים
-
         int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
-
-        // נוסחת ה-Ratio: חמצן מול זמן המתנה
         float survivalRatio = (float)freeSquares / (float)(actualTailDelay + 2.0f);
 
+        int distEndToTail = abs((int)result.furthestPoint.second - (int)currentTail.first) + 
+                        abs((int)result.furthestPoint.first - (int)currentTail.second);
+
+        float continuityFactor = 1.0f / (float)(distEndToTail + 1);
+
+        // נוסחת ה-Ratio: חמצן מול זמן המתנה
+        
         float oldSurvivalRatio = lastStepRatio; 
         lastStepRatio = survivalRatio; // עדכון ה-Ratio לצעד הבא
 
@@ -334,28 +338,37 @@
             // שימוש בחזקה שלישית (pow 3) הופך את העונש לסלחני מאוד בחצי לוח וקטלני בסוף
             if (result.accessibleSpace < 0.45f) {
 
+               // 1. חישוב בסיסי של העונש (לפי גודל החור שהנחש נמצא בו)
                 float spaceGap = 1.0f - result.accessibleSpace;
                 float spacePenalty = pow(spaceGap, 3) * 20.0f;
 
-                if (survivalRatio > 1.2f) { // העלינו מ-1.1 ל-1.2 ליתר ביטחון
-                    // רק אם היחס ממש טוב, נאפשר לו "לרוץ" לזנב
-                    spacePenalty *= movingToTail ? 0.05f : 0.3f;
+                // 2. בדיקת המצב האסטרטגי: האם הוא ב"פיתול בטוח"?
+                // תנאי ה"גם וגם": גם קרוב לזנב וגם יחס שרידות טוב
+                bool isCoilingCorrectly = (continuityFactor > 0.8f && survivalRatio > 1.1f);
+
+                if (isCoilingCorrectly) {
+                    // מצב אידיאלי: הוא צפוף אבל בזיגזג מושלם לעבר הזנב
+                    // אנחנו נותנים "חנינה" של 90% מהעונש
+                    spacePenalty *= 0.1f; 
                 } 
-                else if (survivalRatio > 0.9f) { 
-                    // באזור ה"דמדומים" (כמו הריבוע 4x4), אנחנו לא נותנים הנחה על ריצה לזנב!
-                    // זה יכריח אותו לחפש תנועה שמשפרת את ה-Ratio (זיגזג) במקום מרדף עיוור
-                    spacePenalty *= 0.5f; 
-                }
                 else {
-                    // מצב קריטי - עונש כבד מאוד
-                    if (!movingToTail) spacePenalty *= 1.5f;
+                    // מצב לא אידיאלי: הוא בתוך חור אבל לא מנווט נכון לזנב
+                    if (survivalRatio > 0.9f) {
+                        // מצב ביניים: הוא מנסה, אז העונש גדל ככל שהוא רחוק מהזנב
+                        spacePenalty *= (1.5f - continuityFactor); 
+                    }
+                    else {
+                        // מצב פאניקה: הוא סגור בשטח קטן בלי יציאה קרובה - עונש כבד!
+                        spacePenalty *= 2.0f; 
+                    }
                 }
 
-                // הבונוס על שיפור היחס (הזיגזג) - חשוב להשאיר אותו חזק
-                if (survivalRatio >= oldSurvivalRatio && survivalRatio > 0.8f) {
-                    spacePenalty *= 0.6f; // הגדלנו את הבונוס מ-0.8 ל-0.7
+                // 3. בונוס מומנטום: אם הוא הצליח לשפר את המצב שלו מהצעד הקודם
+                if (survivalRatio >= oldSurvivalRatio && survivalRatio > 0.7f) {
+                    spacePenalty *= 0.6f; // הנחה של 40% על העונש
                 }
 
+                // 4. החלת העונש הסופי על ה-Reward
                 result.reward -= spacePenalty;
             }
 
@@ -405,11 +418,13 @@
         result.accessibleSpaceW = getAccesibleSpaceInDir(headX - 1, headY); // West
 
         //all the sum of space in each dir is equel to the sum in each firaction
-        result.accessibleSpace = calculateAccessibleSpace();
+        BFSResult bfs = calculateAccessibleSpace();
+        result.accessibleSpace = bfs.count;
+        result.furthestPoint = bfs.lastPoint; 
     }
 
 
-    float Game::calculateAccessibleSpace() {
+    BFSResult Game::calculateAccessibleSpace() {
 
     //  y הוא rows, x הוא cols
 
@@ -425,6 +440,7 @@
 
     std::vector<bool> visited(rows * cols, false);
     std::queue<std::pair<int, int>> q;
+    pair<int,int> furthest = {startX,startY};
 
     q.push({startX, startY});
     visited[startY * cols + startX] = true;
@@ -433,6 +449,7 @@
 
         std::pair<int, int> curr = q.front();
         q.pop();
+        furthest = curr;
 
         int dx[] = {0, 0, 1, -1};
         int dy[] = {1, -1, 0, 0};
@@ -453,6 +470,7 @@
                     visited[index] = true;
                     q.push({nx, ny});
                     reachableCount++;
+                    
                 }
 
             }
@@ -463,10 +481,10 @@
 
     // calculate all empty spaces
     float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen() -1;//-1 for apple
-    if (totalEmpty == 0) return 1.0f;
+    if (totalEmpty <= 0.5f) return {1.0f,furthest};
 
     //normalized return
-    return (float)reachableCount / (float)totalEmpty;
+    return {(float)reachableCount / (float)totalEmpty,furthest};
 
 }
 
@@ -508,7 +526,8 @@
 
     // calculate all empty spaces
     float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen() -1;//-1 for apple
-    
+    if (totalEmpty <= 0.5f) return 1.0f;
+
     return (float)count / totalEmpty;
 }
 

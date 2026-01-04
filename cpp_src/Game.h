@@ -51,7 +51,7 @@ class Game
     float calculateManhattanDistance();
     void fillAIState(stepResult& result);//function that fill all the ai state 
     float getAccesibleSpaceInDir(int startX, int startY);//function that show how much space we have to move in chosen dir
-    float calculateAccessibleSpace();//function that show hoe mucw space we have to move in all directions
+    BFSResult calculateAccessibleSpace();//function that show hoe mucw space we have to move in all directions
     void getTailDir(float& outX,float& outY);//get the distance between the head and the tail
     void getAcssesibleSpace(stepResult& result);//fill the data result for acessible (N S W E) space in result
     void fillSafeDeadState(stepResult& result);
@@ -64,6 +64,11 @@ class Game
 
     //get functions
     vector<vector<int>> getGrid();
+};
+
+struct BFSResult {
+    float count = 0;
+    pair<int, int> lastPoint;
 };
 
 #endif // Game_H

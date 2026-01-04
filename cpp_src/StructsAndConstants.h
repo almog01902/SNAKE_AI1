@@ -35,6 +35,8 @@ struct stepResult//for ai agent
 
     float accessibleSpaceN, accessibleSpaceS,accessibleSpaceE,accessibleSpaceW;
 
+    pair<int,int> furthestPoint;//not an input use for calculate data
+
     
 
     //Metadata
@@ -43,6 +45,11 @@ struct stepResult//for ai agent
     bool won;//whether the game won
     int snakeLen;//current snake Length
     int foodEaten; //number of food eaten
+};
+
+struct BFSResult {
+    float count = 0;
+    pair<int, int> lastPoint;
 };
 
 
