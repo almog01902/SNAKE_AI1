@@ -296,6 +296,14 @@
                 result.reward+=1.0f;
                 minDistTOFood = currDist;  
             } 
+            else
+            {
+                if (result.fillPercentage < 0.25f)
+                {
+                    result.reward -=1.5f;
+                }
+                
+            }
 
             float spaceGap = 1.0f - result.accessibleSpace;
             float spacePenalty = 0.0f;
