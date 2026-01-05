@@ -231,6 +231,14 @@ stepResult Game::step(int action)
     AIInputHandler(action);
     snake.move();
     stepsSinceLastFood++;
+    // קודם כל בודקים אם יצאנו מהגבולות. אם כן - לא מעדכנים את הגריד!
+    auto head = snake.body.front();
+    bool hitWall = (head.first < 0 || head.first >= grid.rows || head.second < 0 || head.second >= grid.cols);
+
+    if (!hitWall) {
+        // רק אם אנחנו בתוך הלוח, בטוח לעדכן את המטריצה
+        grid.update(snake);
+    }
 
     // חישוב starvation
     int baseSteps = (grid.rows + grid.cols) * 2.5; 
@@ -334,7 +342,7 @@ stepResult Game::step(int action)
     }
 
     result.foodEaten = foodEaten;
-    grid.update(snake);
+
     return result;
 }
     
@@ -370,10 +378,10 @@ stepResult Game::step(int action)
         int headX = snake.body.front().second;
         int headY = snake.body.front().first;
         //fill N S E W
-        result.accessibleSpaceN = getAccesibleSpaceInDir(headX, headY - 1); // North
-        result.accessibleSpaceS = getAccesibleSpaceInDir(headX, headY + 1); // South
-        result.accessibleSpaceE = getAccesibleSpaceInDir(headX + 1, headY); // East
-        result.accessibleSpaceW = getAccesibleSpaceInDir(headX - 1, headY); // West
+        result.accessibleSpaceN = predictFutureSpace(headX, headY - 1); // North
+        result.accessibleSpaceS = predictFutureSpace(headX, headY + 1); // South
+        result.accessibleSpaceE = predictFutureSpace(headX + 1, headY); // East
+        result.accessibleSpaceW = predictFutureSpace(headX - 1, headY); // West
 
         //all the sum of space in each dir is equel to the sum in each firaction
         BFSResult bfs = calculateAccessibleSpace();
@@ -438,7 +446,7 @@ stepResult Game::step(int action)
     }
 
     // calculate all empty spaces
-    float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen() -1;//-1 for apple
+    float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen();
     if (totalEmpty <= 0.5f) return {1.0f,furthest};
 
     //normalized return
@@ -447,13 +455,27 @@ stepResult Game::step(int action)
 }
 
 float Game::predictFutureSpace(int nextX, int nextY) {
-    // 1. בדיקת גבולות (למנוע קריסה)
+    // 1. בדיקת גבולות
     if (nextX < 0 || nextX >= grid.cols || nextY < 0 || nextY >= grid.rows) return 0.0f;
     
-    // 2. בדיקת מוות מיידי (האם המשבצת תפוסה על ידי הגוף, למעט הזנב שיזוז)
+    // בדיקה האם הצעד הבא הוא אוכל?
+    bool isFood = (nextX == grid.foodPosition.second && nextY == grid.foodPosition.first);
+
+    // 2. בדיקת מוות מיידי
     auto tailPos = snake.body.back(); // {Y, X}
-    if (grid.cells[nextY][nextX] == SNAKE && !(nextX == tailPos.second && nextY == tailPos.first)) {
-        return 0.0f;
+    
+    // אם זה אוכל, הזנב לא יזוז! אז אסור להחשיב אותו כפנוי.
+    // אם זה לא אוכל, הזנב יזוז, אז מותר להחשיב אותו.
+    bool tailWillMove = !isFood;
+
+    // התנאי המעודכן:
+    if (grid.cells[nextY][nextX] == SNAKE) {
+        // אם המשבצת היא נחש, היא מותרת רק אם:
+        // 1. זה הזנב
+        // 2. וגם - הזנב עומד לזוז (כלומר, אין אוכל)
+        if (!(nextX == tailPos.second && nextY == tailPos.first && tailWillMove)) {
+            return 0.0f; 
+        }
     }
 
     std::vector<bool> visited(grid.rows * grid.cols, false);
@@ -462,17 +484,11 @@ float Game::predictFutureSpace(int nextX, int nextY) {
     q.push({nextX, nextY});
     visited[nextY * grid.cols + nextX] = true;
     int count = 0;
-    bool canReachTail = false;
 
     while (!q.empty()) {
-        std::pair<int, int> curr = q.front(); // {X, Y}
+        std::pair<int, int> curr = q.front();
         q.pop();
         count++;
-
-        // בדיקה אם הגענו לזנב (נתיב מילוט)
-        if (curr.first == tailPos.second && curr.second == tailPos.first) {
-            canReachTail = true;
-        }
 
         int dx[] = {0, 0, 1, -1};
         int dy[] = {1, -1, 0, 0};
@@ -483,8 +499,14 @@ float Game::predictFutureSpace(int nextX, int nextY) {
 
             if (nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
                 int index = ny * grid.cols + nx;
-                // תנאי כניסה למשבצת: פנויה או שהיא המקום שבו הזנב נמצא כרגע
-                if (!visited[index] && (grid.cells[ny][nx] != SNAKE || (nx == tailPos.second && ny == tailPos.first))) {
+                
+                // האם המשבצת פנויה?
+                bool isFree = (grid.cells[ny][nx] != SNAKE);
+                
+                // האם זו משבצת הזנב והוא עומד לזוז?
+                bool isTailAndMoving = (nx == tailPos.second && ny == tailPos.first && tailWillMove);
+
+                if (!visited[index] && (isFree || isTailAndMoving)) {
                     visited[index] = true;
                     q.push({nx, ny});
                 }
@@ -493,12 +515,13 @@ float Game::predictFutureSpace(int nextX, int nextY) {
     }
 
     float snakeLen = (float)snake.getSnakeLen();
-    float totalEmpty = (float)(grid.rows * grid.cols) - snakeLen -1;
+    // אם אכלנו, האורך גדל ב-1 בחישוב המקום הפנוי
+    if (isFood) snakeLen += 1.0f; 
+
+    float totalEmpty = (float)(grid.rows * grid.cols) - snakeLen;
     if (totalEmpty <= 0.5f) return 1.0f;
 
     float spaceRatio = (float)count / totalEmpty;
-
-
     return spaceRatio;
 }
 

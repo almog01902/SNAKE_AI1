@@ -192,14 +192,7 @@ for episode in range(NUM_EPISODES):
     advantages_normalized_b = advantages_normalized_b * mask_b
 
 
-    START_EPISODE = 3220
-    DURATION = 1000  # דעיכה לאורך 1000 פרקים
-    START_ENT = 0.02
-    END_ENT = 0.001   # ערך סופי נמוך לשיפור הביצועים
 
-    scheduler = EntropyScheduler(START_ENT, END_ENT, START_EPISODE, DURATION)
-    epis = len(rewards_to_save)
-    print(f"current entropy cuff:{scheduler.get_ent_coeff(epis):.6f} ")
     
 
     #####
@@ -227,7 +220,7 @@ for episode in range(NUM_EPISODES):
         entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - scheduler.get_ent_coeff(epis) * entropy_masked
+        loss = actor_loss + 0.5 * critic_loss - CURR_ENTR * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()
