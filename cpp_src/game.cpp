@@ -20,7 +20,6 @@
         _bfsVisited.resize(grid.rows * grid.cols, 0);
         _timeToFreeCache.resize(grid.rows * grid.cols, -1);
         _bfsGeneration = 0;
-        
     }
 
     vector<vector<int>> Game::getGrid()
@@ -324,18 +323,12 @@ stepResult Game::step(int action)
                         // זה ה-Holy Grail!
                         // אנחנו גם חוסכים מקום (זיגזג) וגם מתקדמים בדיוק לנקודה שתיפתח בקרוב
                         result.reward += 1.5f; 
-                    } else {
-                        // חוסכים מקום אבל מתרחקים מהיציאה - פחות טוב אבל עדיף מכלום
-                        result.reward += 0.2f; 
-                    }
+                    } 
                 } else {
                     // בזבוז שטח
                     result.reward -= 2.0f; 
                 }
                 
-                // בונוס הישרדות
-                result.reward += 0.5f;
-
                 // 4. חישוב מדדים גיאומטריים (עונש שטח כבד)
                 float gridTotalCells = (float)(grid.rows * grid.cols);
                 float freeSquares = result.accessibleSpace * gridTotalCells;
