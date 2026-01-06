@@ -192,7 +192,7 @@ for episode in range(NUM_EPISODES):
     advantages_normalized_b = advantages_normalized_b * mask_b
 
 
-    START_EPISODE = 3454
+    START_EPISODE = 3456
     DURATION = 1000  # דעיכה לאורך 1000 פרקים
     START_ENT = 0.02
     END_ENT = 0.001   # ערך סופי נמוך לשיפור הביצועים
