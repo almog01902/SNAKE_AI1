@@ -17,6 +17,10 @@
         foodEaten = 0;
         state = PLAYING;
         minDistTOFood = fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
+        _bfsVisited.resize(grid.rows * grid.cols, 0);
+        _timeToFreeCache.resize(grid.rows * grid.cols, -1);
+        _bfsGeneration = 0;
+        
     }
 
     vector<vector<int>> Game::getGrid()
@@ -231,12 +235,11 @@ stepResult Game::step(int action)
     AIInputHandler(action);
     snake.move();
     stepsSinceLastFood++;
-    // קודם כל בודקים אם יצאנו מהגבולות. אם כן - לא מעדכנים את הגריד!
+    
     auto head = snake.body.front();
     bool hitWall = (head.first < 0 || head.first >= grid.rows || head.second < 0 || head.second >= grid.cols);
 
     if (!hitWall) {
-        // רק אם אנחנו בתוך הלוח, בטוח לעדכן את המטריצה
         grid.update(snake);
     }
 
@@ -245,7 +248,7 @@ stepResult Game::step(int action)
     int dynamicMaxSteps = baseSteps + (snake.getSnakeLen() * 3);
     bool starved = stepsSinceLastFood > dynamicMaxSteps;
 
-    // 3. בדיקת Game Over (חוסך את כל המשך הפונקציה אם הנחש מת)
+    // 3. בדיקת Game Over
     if (isGameOver() || starved) {
         result.done = true;
         result.reward = -1000.0f; 
@@ -256,13 +259,12 @@ stepResult Game::step(int action)
         return result;
     }
 
-    // 4. מילוי מצב ה-AI (כולל ה-BFS הראשי שנותן לנו את ה-accessibleSpace)
+    // 4. מילוי מצב ה-AI
     fillAIState(result);
     result.timePressure = (float)stepsSinceLastFood / (float)dynamicMaxSteps;
 
     // 5. לוגיקת פרסים (Rewards)
     if (isFoodEaten()) {
-        // --- מסלול "אכילה": מהיר וקל לחישוב ---
         snake.grow();
         foodEaten++;
         result.reward = 250.0f;
@@ -278,13 +280,10 @@ stepResult Game::step(int action)
             grid.placeFood();
             minDistTOFood = calculateManhattanDistance();
         }
-        // מאפסים את היחס לצעד הבא כדי שלא תהיה קפיצה מוזרה
         lastStepRatio = 2.0f; 
     } 
     else {
-        // --- מסלול "תנועה רגילה": כאן נבצע את החישובים הכבדים רק אם צריך ---
-        
-        // עונש זמן ובונוס התקרבות בסיסי
+        // --- תנועה רגילה ---
         result.reward = -0.1f * (1.0f + result.timePressure);
         float currDist = calculateManhattanDistance();
         float delta = minDistTOFood - currDist;
@@ -296,55 +295,58 @@ stepResult Game::step(int action)
             result.reward -= 1.5f;
         }
 
-        // לוגיקת עונש שטח - החלק הכבד!
+        // --- לוגיקת עונש שטח ---
         if (result.accessibleSpace < 0.45f) {
             
-            if(canReachTail())
+            
+            if(!canReachTail())
             {
-                result.reward -=0.5;
-            }
-            else
-            {
+                // 1. מציאת נקודת היציאה האופטימלית ("החוליה החלשה")
+                // במקום סתם ללכת לזנב, אנחנו הולכים לחוליה שתוחמת אותנו ותיעלם ראשונה
+                std::pair<int, int> targetExit = getExitPoint(); // {y, x}
 
                 auto newHead = snake.body.front(); 
-                auto neck = snake.body[1]; // החוליה שהיינו בה לפני רגע
-                auto currentTail = snake.body.back();
-
-                // חישוב מרחק לזנב: מאיפה באנו (neck) ולאן הגענו (newHead)
-                int distNew = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
-                int distOld = abs((int)neck.second - (int)currentTail.second) + abs((int)neck.first - (int)currentTail.first);
+                auto neck = snake.body[1]; 
                 
-                // האם אנחנו מתקרבים (או שומרים מרחק) לזנב?
-                bool movingTowardsTail = (distNew <= distOld);
+                // חישוב המרחק: האם אנחנו מתקרבים לפתח המילוט?
+                // שים לב: targetExit.first זה Y, targetExit.second זה X
+                int distNew = abs((int)newHead.second - targetExit.second) + abs((int)newHead.first - targetExit.first);
+                int distOld = abs((int)neck.second - targetExit.second) + abs((int)neck.first - targetExit.first);
+                
+                bool movingTowardsExit = (distNew <= distOld);
 
-                if (getOccupiedNeighbors() >= 2) {
-                    if (movingTowardsTail) {
-                        // המצב המושלם: גם נצמדנו (חסכנו מקום) וגם התקרבנו ליציאה
-                        result.reward += 1.0f; 
+                // 2. ספירת שכנים (נשאר אותו דבר)
+                int neighbors = getOccupiedNeighbors();
+
+                // 3. מתן בונוס/עונש על זיגזג + כיוון לפתח המילוט
+                if (neighbors >= 2) {
+                    if (movingTowardsExit) {
+                        // זה ה-Holy Grail!
+                        // אנחנו גם חוסכים מקום (זיגזג) וגם מתקדמים בדיוק לנקודה שתיפתח בקרוב
+                        result.reward += 1.5f; 
                     } else {
-                        // המצב המסוכן שתיארת: נצמדנו, אבל אנחנו מתרחקים מהזנב ועלולים להינעל
-                        // ניתן בונוס קטנטן רק על ההישרדות, אבל לא נעודד את הכיוון הזה
+                        // חוסכים מקום אבל מתרחקים מהיציאה - פחות טוב אבל עדיף מכלום
                         result.reward += 0.2f; 
                     }
                 } else {
-                    // יצירת חורים (בלי שכנים) - עדיין עונש
+                    // בזבוז שטח
                     result.reward -= 2.0f; 
                 }
+                
+                // בונוס הישרדות
+                result.reward += 0.5f;
 
-                // רק עכשיו, כשיש לחץ שטח, נחשב את המדדים הגיאומטריים המורכבים
+                // 4. חישוב מדדים גיאומטריים (עונש שטח כבד)
                 float gridTotalCells = (float)(grid.rows * grid.cols);
                 float freeSquares = result.accessibleSpace * gridTotalCells;
 
-                // מרחקים לזנב
-                int newDistToTail = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
-                int distEndToTail = abs((int)result.furthestPoint.second - (int)currentTail.second) + abs((int)result.furthestPoint.first - (int)currentTail.first);
+                int distEndToExit = abs((int)result.furthestPoint.second - targetExit.second) + abs((int)result.furthestPoint.first - targetExit.first);
                 
-                // חישוב יחס שרידות (כולל קריאה ל-BFS המשני bodySegmentsInArea)
-                int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
+                // שים לב: actualTailDelay מחושב מול היציאה האמיתית עכשיו
+                int actualTailDelay = max(distNew, bodySegmentsInArea(newHead));
                 float survivalRatio = freeSquares / (actualTailDelay + 2.0f);
-                float continuityFactor = 1.0f / (distEndToTail + 1.0f);
+                float continuityFactor = 1.0f / (distEndToExit + 1.0f);
 
-                // חישוב העונש
                 float spaceGap = 1.0f - result.accessibleSpace;
                 float spacePenalty = pow(spaceGap, 3) * 20.0f;
 
@@ -359,21 +361,19 @@ stepResult Game::step(int action)
                     }
                 }
 
-                // בונוס שיפור (מומנטום)
                 if (survivalRatio >= lastStepRatio && survivalRatio > 0.7f) {
                     spacePenalty *= 0.6f;
                 }
 
                 result.reward -= spacePenalty;
-                lastStepRatio = survivalRatio; // עדכון רק כשיש חישוב
+                lastStepRatio = survivalRatio;
             }
         } else {
-            lastStepRatio = 2.0f; // שטח פתוח - יחס "מושלם"
+            lastStepRatio = 2.0f; 
         }
     }
 
     result.foodEaten = foodEaten;
-
     return result;
 }
     
@@ -421,108 +421,90 @@ stepResult Game::step(int action)
     }
 
 
-    BFSResult Game::calculateAccessibleSpace() {
-
-    //  y הוא rows, x הוא cols
-
-    int startX = snake.body.front().second; // Column
-    int startY = snake.body.front().first;  // Row
-
-   
+BFSResult Game::calculateAccessibleSpace() {
+    int startX = snake.body.front().second; 
+    int startY = snake.body.front().first;  
 
     int cols = grid.cols;
     int rows = grid.rows;
 
+    // ניקוי התור והעלאת דור
+    while(!_bfsQueue.empty()) _bfsQueue.pop();
+    _bfsGeneration++;
 
-
-    std::vector<bool> visited(rows * cols, false);
-    std::queue<std::pair<int, int>> q;
-    pair<int,int> furthest = {startX,startY};
-
-    q.push({startX, startY});
-    visited[startY * cols + startX] = true;
+    _bfsQueue.push({startX, startY});
+    _bfsVisited[startY * cols + startX] = _bfsGeneration;
+    
     int reachableCount = 0;
-    while (!q.empty()) {
+    std::pair<int, int> furthest = {startX, startY}; // ברירת מחדל
 
-        std::pair<int, int> curr = q.front();
-        q.pop();
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+
+    while (!_bfsQueue.empty()) {
+        std::pair<int, int> curr = _bfsQueue.front();
+        _bfsQueue.pop();
+        
+        // עדכון הנקודה הרחוקה ביותר (אופציונלי: אפשר לעשות את זה מדויק יותר לפי מרחק, אבל זה הקירוב הקיים שלך)
         furthest = curr;
 
-        int dx[] = {0, 0, 1, -1};
-        int dy[] = {1, -1, 0, 0};
-
         for (int i = 0; i < 4; i++) {
-
-        
             int nx = curr.first + dx[i];
             int ny = curr.second + dy[i];
-
-            //chacking borders
 
             if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
                 int index = ny * cols + nx;
 
-                //cells[row][col] -> [ny][nx]
-                if (!visited[index] && grid.cells[ny][nx] != SNAKE) {
-                    visited[index] = true;
-                    q.push({nx, ny});
+                // בדיקת visited לפי הדור הנוכחי
+                if (_bfsVisited[index] != _bfsGeneration && grid.cells[ny][nx] != SNAKE) {
+                    _bfsVisited[index] = _bfsGeneration;
+                    _bfsQueue.push({nx, ny});
                     reachableCount++;
-                    
                 }
-
             }
-
         }
-
     }
 
-    // calculate all empty spaces
-    float totalEmpty = (float)(grid.rows * grid.cols) - snake.getSnakeLen();
-    if (totalEmpty <= 0.5f) return {1.0f,furthest};
+    float totalEmpty = (float)(rows * cols) - snake.getSnakeLen();
+    if (totalEmpty <= 0.5f) return {1.0f, furthest};
 
-    //normalized return
-    return {(float)reachableCount / (float)totalEmpty,furthest};
-
+    return {(float)reachableCount / (float)totalEmpty, furthest};
 }
 
+
 float Game::predictFutureSpace(int nextX, int nextY) {
-    // 1. בדיקת גבולות
+    // 1. בדיקת גבולות (מהירה)
     if (nextX < 0 || nextX >= grid.cols || nextY < 0 || nextY >= grid.rows) return 0.0f;
     
     // בדיקה האם הצעד הבא הוא אוכל?
     bool isFood = (nextX == grid.foodPosition.second && nextY == grid.foodPosition.first);
 
     // 2. בדיקת מוות מיידי
-    auto tailPos = snake.body.back(); // {Y, X}
-    
-    // אם זה אוכל, הזנב לא יזוז! אז אסור להחשיב אותו כפנוי.
-    // אם זה לא אוכל, הזנב יזוז, אז מותר להחשיב אותו.
+    auto tailPos = snake.body.back(); 
     bool tailWillMove = !isFood;
 
-    // התנאי המעודכן:
     if (grid.cells[nextY][nextX] == SNAKE) {
-        // אם המשבצת היא נחש, היא מותרת רק אם:
-        // 1. זה הזנב
-        // 2. וגם - הזנב עומד לזוז (כלומר, אין אוכל)
         if (!(nextX == tailPos.second && nextY == tailPos.first && tailWillMove)) {
             return 0.0f; 
         }
     }
 
-    std::vector<bool> visited(grid.rows * grid.cols, false);
-    std::queue<std::pair<int, int>> q;
+    // --- אופטימיזציה: שימוש בזיכרון הקיים ---
+    while(!_bfsQueue.empty()) _bfsQueue.pop(); // ניקוי שאריות
+    _bfsGeneration++; // דור חדש לחיפוש הזה
 
-    q.push({nextX, nextY});
-    visited[nextY * grid.cols + nextX] = true;
+    _bfsQueue.push({nextX, nextY});
+    _bfsVisited[nextY * grid.cols + nextX] = _bfsGeneration; // סימון ביקור
+    
     int count = 0;
+    
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
 
-    while (!q.empty()) {
-        std::pair<int, int> curr = q.front();
-        q.pop();
+    while (!_bfsQueue.empty()) {
+        std::pair<int, int> curr = _bfsQueue.front();
+        _bfsQueue.pop();
         count++;
-
-        int dx[] = {0, 0, 1, -1};
-        int dy[] = {1, -1, 0, 0};
 
         for (int i = 0; i < 4; i++) {
             int nx = curr.first + dx[i];
@@ -531,29 +513,28 @@ float Game::predictFutureSpace(int nextX, int nextY) {
             if (nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
                 int index = ny * grid.cols + nx;
                 
-                // האם המשבצת פנויה?
-                bool isFree = (grid.cells[ny][nx] != SNAKE);
-                
-                // האם זו משבצת הזנב והוא עומד לזוז?
-                bool isTailAndMoving = (nx == tailPos.second && ny == tailPos.first && tailWillMove);
+                // בדיקת ביקור לפי הדור הנוכחי
+                if (_bfsVisited[index] != _bfsGeneration) {
+                    
+                    bool isFree = (grid.cells[ny][nx] != SNAKE);
+                    bool isTailAndMoving = (nx == tailPos.second && ny == tailPos.first && tailWillMove);
 
-                if (!visited[index] && (isFree || isTailAndMoving)) {
-                    visited[index] = true;
-                    q.push({nx, ny});
+                    if (isFree || isTailAndMoving) {
+                        _bfsVisited[index] = _bfsGeneration; // סימון ביקור
+                        _bfsQueue.push({nx, ny});
+                    }
                 }
             }
         }
     }
 
     float snakeLen = (float)snake.getSnakeLen();
-    // אם אכלנו, האורך גדל ב-1 בחישוב המקום הפנוי
     if (isFood) snakeLen += 1.0f; 
 
     float totalEmpty = (float)(grid.rows * grid.cols) - snakeLen;
     if (totalEmpty <= 0.5f) return 1.0f;
 
-    float spaceRatio = (float)count / totalEmpty;
-    return spaceRatio;
+    return (float)count / totalEmpty;
 }
 
 
@@ -617,25 +598,20 @@ int Game::bodySegmentsInArea(std::pair<int, int> newHead) {
     int startY = newHead.first;
     int startX = newHead.second;
 
-    std::queue<std::pair<int, int>> q;
-    // מערך הביקורים שלנו ישרת גם למניעת חזרה למשבצות ריקות וגם למניעת ספירה כפולה של נחש
-    std::vector<bool> visited(grid.rows * grid.cols, false);
+    // --- אופטימיזציה: שימוש בזיכרון הקיים ---
+    while(!_bfsQueue.empty()) _bfsQueue.pop();
+    _bfsGeneration++; // דור חדש
 
     // נסמן את נקודת ההתחלה
-    visited[startY * grid.cols + startX] = true;
-    
-    // אם הראש עצמו נכנס לקיר/גוף ישר על ההתחלה, הפונקציה לא תיקרא בכלל מהלוגיקה הראשית,
-    // אבל ליתר ביטחון נתחיל את ה-BFS מהשכנים החוקיים של הראש.
-
-    // נדחוף את הראש לתור כנקודת מוצא (או את השכנים, אבל יותר קל לדחוף את הראש ולתת ללולאה לרוץ)
-    q.push({startX, startY});
+    _bfsVisited[startY * grid.cols + startX] = _bfsGeneration;
+    _bfsQueue.push({startX, startY});
 
     int dx[] = {0, 0, 1, -1};
     int dy[] = {1, -1, 0, 0};
 
-    while(!q.empty()) {
-        auto curr = q.front(); 
-        q.pop();
+    while(!_bfsQueue.empty()) {
+        auto curr = _bfsQueue.front(); 
+        _bfsQueue.pop();
         int cx = curr.first; 
         int cy = curr.second;
 
@@ -647,17 +623,15 @@ int Game::bodySegmentsInArea(std::pair<int, int> newHead) {
             if(nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
                 int idx = ny * grid.cols + nx;
 
-                // רק אם לא ביקרנו במשבצת הזו עדיין (בין אם היא נחש ובין אם היא ריקה)
-                if (!visited[idx]) {
+                // אם לא ביקרנו בסיבוב הנוכחי
+                if (_bfsVisited[idx] != _bfsGeneration) {
                     
                     if(grid.cells[ny][nx] == EMPTY) {
-                        // משבצת ריקה - ממשיכים לטייל ממנה
-                        visited[idx] = true;
-                        q.push({nx, ny});
+                        _bfsVisited[idx] = _bfsGeneration; // סימון ביקור
+                        _bfsQueue.push({nx, ny});
                     } 
                     else if(grid.cells[ny][nx] == SNAKE) {
-                        // משבצת נחש - סופרים אותה ומונעים ספירה חוזרת!
-                        visited[idx] = true; 
+                        _bfsVisited[idx] = _bfsGeneration; // סימון ביקור (כדי לא לספור פעמיים)
                         bodySegments++;
                     }
                 }
@@ -669,36 +643,38 @@ int Game::bodySegmentsInArea(std::pair<int, int> newHead) {
 
 bool Game::canReachTail() {
     // 1. שליפת מיקום הראש והזנב
-    // הנחה: pair.first = y (row), pair.second = x (col)
     int startX = snake.body.front().second; 
     int startY = snake.body.front().first;
     
     int tailX = snake.body.back().second;
     int tailY = snake.body.back().first;
 
-    // אם הראש ליד הזנב מיידית - זה true
+    // בדיקה מהירה: אם הראש ליד הזנב
     if (abs(startX - tailX) + abs(startY - tailY) == 1) return true;
 
     int cols = grid.cols;
     int rows = grid.rows;
 
-    std::vector<bool> visited(rows * cols, false);
-    std::queue<std::pair<int, int>> q;
+    // --- אופטימיזציה: שימוש בזיכרון הקיים ---
+    // ניקוי התור וקידום הדור (כמו שעשינו בפונקציות האחרות)
+    while(!_bfsQueue.empty()) _bfsQueue.pop();
+    _bfsGeneration++; 
 
-    q.push({startX, startY});
-    visited[startY * cols + startX] = true;
+    // דחיפת ההתחלה
+    _bfsQueue.push({startX, startY});
+    _bfsVisited[startY * cols + startX] = _bfsGeneration; // סימון שביקרנו
 
-    while (!q.empty()) {
-        std::pair<int, int> curr = q.front();
-        q.pop();
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+
+    while (!_bfsQueue.empty()) {
+        std::pair<int, int> curr = _bfsQueue.front();
+        _bfsQueue.pop();
 
         // הגענו לזנב? מעולה.
         if (curr.first == tailX && curr.second == tailY) {
             return true;
         }
-
-        int dx[] = {0, 0, 1, -1};
-        int dy[] = {1, -1, 0, 0};
 
         for (int i = 0; i < 4; i++) {
             int nx = curr.first + dx[i];
@@ -707,44 +683,35 @@ bool Game::canReachTail() {
             if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
                 int index = ny * cols + nx;
 
-                if (!visited[index]) {
-                    // המטרה שלנו היא לבדוק אם אפשר ללכת.
-                    // אפשר ללכת אם המשבצת ריקה, או אם זו המשבצת של הזנב עצמו
+                // בדיקה אם ביקרנו בסיבוב הנוכחי (לפי הדור)
+                if (_bfsVisited[index] != _bfsGeneration) {
+                    
                     bool isTail = (nx == tailX && ny == tailY);
                     bool isEmpty = (grid.cells[ny][nx] != SNAKE);
 
                     if (isEmpty || isTail) {
-                        visited[index] = true;
-                        q.push({nx, ny});
+                        _bfsVisited[index] = _bfsGeneration; // סימון שביקרנו
+                        _bfsQueue.push({nx, ny});
                     }
                 }
             }
         }
     }
 
-    // אם סיימנו את כל ה-BFS ולא מצאנו את הזנב
     return false;
 }
 
 int Game::getOccupiedNeighbors()
 {
+    // חישוב שכנים בלבד
     auto newHead = snake.body.front(); 
-    auto neck = snake.body[1]; // החוליה שהיינו בה לפני רגע
-    auto currentTail = snake.body.back();
-
-    // חישוב מרחקים לזנב: מאיפה באנו ולאן הגענו
-    int distNew = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
-    int distOld = abs((int)neck.second - (int)currentTail.second) + abs((int)neck.first - (int)currentTail.first);
-    
-    // האם אנחנו מתקרבים (או שומרים מרחק) לזנב?
-    bool movingTowardsTail = (distNew <= distOld);
-
     int occupiedNeighbors = 0;
-    // ... (חישוב שכנים רגיל כמו קודם) ...
+    
     int hx = newHead.second;
     int hy = newHead.first;
     int dx[] = {0, 0, 1, -1};
     int dy[] = {1, -1, 0, 0};
+    
     for(int i=0; i<4; i++) {
         int cx = hx + dx[i];
         int cy = hy + dy[i];
@@ -752,7 +719,79 @@ int Game::getOccupiedNeighbors()
             occupiedNeighbors++;
         }
     }
-
     return occupiedNeighbors;
+}
+
+// מחזירה את הקואורדינטות של החוליה שתפתח לנו את המלכודת הכי מהר
+std::pair<int, int> Game::getExitPoint() {
+    
+    int n = snake.body.size();
+    
+    // 1. מיפוי הגוף לזמני היעלמות
+    // אנחנו כותבים את הערכים החדשים לתוך ה-Cache
+    for (int i = 0; i < n; ++i) {
+        auto part = snake.body[i]; 
+        int time = n - 1 - i; 
+        _timeToFreeCache[part.first * grid.cols + part.second] = time;
+    }
+
+    // 2. הכנת ה-BFS
+    while(!_bfsQueue.empty()) _bfsQueue.pop();
+    _bfsGeneration++; 
+    
+    auto head = snake.body.front();
+    _bfsQueue.push({head.second, head.first});
+    _bfsVisited[head.first * grid.cols + head.second] = _bfsGeneration;
+
+    int minTimeToFree = 999999;
+    std::pair<int, int> bestExit = snake.body.back(); // ברירת מחדל: הזנב
+
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+
+    // 3. ריצת BFS
+    while (!_bfsQueue.empty()) {
+        auto curr = _bfsQueue.front();
+        _bfsQueue.pop();
+
+        for (int i = 0; i < 4; i++) {
+            int nx = curr.first + dx[i];
+            int ny = curr.second + dy[i];
+            
+            if (nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
+                int idx = ny * grid.cols + nx;
+                
+                if (_bfsVisited[idx] != _bfsGeneration) {
+                    
+                    if (grid.cells[ny][nx] == EMPTY) {
+                        _bfsVisited[idx] = _bfsGeneration; 
+                        _bfsQueue.push({nx, ny});
+                    } 
+                    else if (grid.cells[ny][nx] == SNAKE) {
+                        _bfsVisited[idx] = _bfsGeneration; 
+                        
+                        // קריאה מהירה מה-Cache (בטוחה, כי זה SNAKE ומילאנו אותו למעלה)
+                        int t = _timeToFreeCache[idx];
+                        
+                        if (t != -1 && t < minTimeToFree) {
+                            minTimeToFree = t;
+                            bestExit = {ny, nx};
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 4. ניקוי כירורגי (התוספת החשובה)
+    // לפני שיוצאים, אנחנו מנקים *רק* את המשבצות שכתבנו בהן בתחילת הפונקציה.
+    // זה מבטיח שבפעם הבאה שהפונקציה תקרא, המערך כולו יהיה -1.
+    // זה הרבה יותר מהר מ-std::fill על כל הלוח.
+    for (int i = 0; i < n; ++i) {
+        auto part = snake.body[i]; 
+        _timeToFreeCache[part.first * grid.cols + part.second] = -1;
+    }
+    
+    return bestExit; 
 }
     

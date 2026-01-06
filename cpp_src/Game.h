@@ -7,6 +7,7 @@
 #include <conio.h> // For _getch()
 #include <windows.h> // For Sleep()
 #include <tuple>
+#include <queue>
 #include "StructsAndConstants.h" // Include the header file for constants and structs
 #include "Snake.h" // Include the snake class header
 #include "Grid.h" // Include the grid class header
@@ -22,6 +23,11 @@ class Game
     float minDistTOFood;
     int stepsSinceLastFood =0;
     float lastStepRatio = 1.0f;
+    std::vector<int> _bfsVisited;      // במקום bool, נשתמש ב-int לדורות
+    std::vector<int> _timeToFreeCache; // עבור getExitPoint
+    std::queue<std::pair<int, int>> _bfsQueue;
+    
+    int _bfsGeneration; // מונה שרץ קדימה, חוסך איפוס מערך
     Snake snake;
     Grid grid;
 
@@ -58,6 +64,7 @@ class Game
     int bodySegmentsInArea(pair<int,int> head);
     bool canReachTail();
     int getOccupiedNeighbors();
+    pair<int, int> getExitPoint();
 
 
     //---debug functions---
