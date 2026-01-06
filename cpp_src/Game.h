@@ -56,6 +56,8 @@ class Game
     void getAcssesibleSpace(stepResult& result);//fill the data result for acessible (N S W E) space in result
     void fillSafeDeadState(stepResult& result);
     int bodySegmentsInArea(pair<int,int> head);
+    bool canReachTail();
+    int getOccupiedNeighbors();
 
 
     //---debug functions---

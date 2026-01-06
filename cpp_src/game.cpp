@@ -299,43 +299,74 @@ stepResult Game::step(int action)
         // לוגיקת עונש שטח - החלק הכבד!
         if (result.accessibleSpace < 0.45f) {
             
-            // רק עכשיו, כשיש לחץ שטח, נחשב את המדדים הגיאומטריים המורכבים
-            auto newHead = snake.body.front();
-            auto currentTail = snake.body.back();
-            float gridTotalCells = (float)(grid.rows * grid.cols);
-            float freeSquares = result.accessibleSpace * gridTotalCells;
+            if(canReachTail())
+            {
+                result.reward -=0.5;
+            }
+            else
+            {
 
-            // מרחקים לזנב
-            int newDistToTail = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
-            int distEndToTail = abs((int)result.furthestPoint.second - (int)currentTail.second) + abs((int)result.furthestPoint.first - (int)currentTail.first);
-            
-            // חישוב יחס שרידות (כולל קריאה ל-BFS המשני bodySegmentsInArea)
-            int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
-            float survivalRatio = freeSquares / (actualTailDelay + 2.0f);
-            float continuityFactor = 1.0f / (distEndToTail + 1.0f);
+                auto newHead = snake.body.front(); 
+                auto neck = snake.body[1]; // החוליה שהיינו בה לפני רגע
+                auto currentTail = snake.body.back();
 
-            // חישוב העונש
-            float spaceGap = 1.0f - result.accessibleSpace;
-            float spacePenalty = pow(spaceGap, 3) * 20.0f;
+                // חישוב מרחק לזנב: מאיפה באנו (neck) ולאן הגענו (newHead)
+                int distNew = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
+                int distOld = abs((int)neck.second - (int)currentTail.second) + abs((int)neck.first - (int)currentTail.first);
+                
+                // האם אנחנו מתקרבים (או שומרים מרחק) לזנב?
+                bool movingTowardsTail = (distNew <= distOld);
 
-            if (continuityFactor > 0.8f && survivalRatio > 1.1f) {
-                spacePenalty *= 0.1f; 
-            } 
-            else {
-                if (survivalRatio > 0.9f) {
-                    spacePenalty *= (1.5f - continuityFactor); 
+                if (getOccupiedNeighbors() >= 2) {
+                    if (movingTowardsTail) {
+                        // המצב המושלם: גם נצמדנו (חסכנו מקום) וגם התקרבנו ליציאה
+                        result.reward += 1.0f; 
+                    } else {
+                        // המצב המסוכן שתיארת: נצמדנו, אבל אנחנו מתרחקים מהזנב ועלולים להינעל
+                        // ניתן בונוס קטנטן רק על ההישרדות, אבל לא נעודד את הכיוון הזה
+                        result.reward += 0.2f; 
+                    }
                 } else {
-                    spacePenalty *= 2.0f; 
+                    // יצירת חורים (בלי שכנים) - עדיין עונש
+                    result.reward -= 2.0f; 
                 }
-            }
 
-            // בונוס שיפור (מומנטום)
-            if (survivalRatio >= lastStepRatio && survivalRatio > 0.7f) {
-                spacePenalty *= 0.6f;
-            }
+                // רק עכשיו, כשיש לחץ שטח, נחשב את המדדים הגיאומטריים המורכבים
+                float gridTotalCells = (float)(grid.rows * grid.cols);
+                float freeSquares = result.accessibleSpace * gridTotalCells;
 
-            result.reward -= spacePenalty;
-            lastStepRatio = survivalRatio; // עדכון רק כשיש חישוב
+                // מרחקים לזנב
+                int newDistToTail = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
+                int distEndToTail = abs((int)result.furthestPoint.second - (int)currentTail.second) + abs((int)result.furthestPoint.first - (int)currentTail.first);
+                
+                // חישוב יחס שרידות (כולל קריאה ל-BFS המשני bodySegmentsInArea)
+                int actualTailDelay = max(newDistToTail, bodySegmentsInArea(newHead));
+                float survivalRatio = freeSquares / (actualTailDelay + 2.0f);
+                float continuityFactor = 1.0f / (distEndToTail + 1.0f);
+
+                // חישוב העונש
+                float spaceGap = 1.0f - result.accessibleSpace;
+                float spacePenalty = pow(spaceGap, 3) * 20.0f;
+
+                if (continuityFactor > 0.8f && survivalRatio > 1.1f) {
+                    spacePenalty *= 0.1f; 
+                } 
+                else {
+                    if (survivalRatio > 0.9f) {
+                        spacePenalty *= (1.5f - continuityFactor); 
+                    } else {
+                        spacePenalty *= 2.0f; 
+                    }
+                }
+
+                // בונוס שיפור (מומנטום)
+                if (survivalRatio >= lastStepRatio && survivalRatio > 0.7f) {
+                    spacePenalty *= 0.6f;
+                }
+
+                result.reward -= spacePenalty;
+                lastStepRatio = survivalRatio; // עדכון רק כשיש חישוב
+            }
         } else {
             lastStepRatio = 2.0f; // שטח פתוח - יחס "מושלם"
         }
@@ -587,45 +618,141 @@ int Game::bodySegmentsInArea(std::pair<int, int> newHead) {
     int startX = newHead.second;
 
     std::queue<std::pair<int, int>> q;
+    // מערך הביקורים שלנו ישרת גם למניעת חזרה למשבצות ריקות וגם למניעת ספירה כפולה של נחש
     std::vector<bool> visited(grid.rows * grid.cols, false);
 
-    // נסמן את הראש כביכול כ"ביקרנו בו" כדי שלא נחזור אליו
+    // נסמן את נקודת ההתחלה
     visited[startY * grid.cols + startX] = true;
+    
+    // אם הראש עצמו נכנס לקיר/גוף ישר על ההתחלה, הפונקציה לא תיקרא בכלל מהלוגיקה הראשית,
+    // אבל ליתר ביטחון נתחיל את ה-BFS מהשכנים החוקיים של הראש.
 
-    // נכניס לתור רק שכנים שהם באמת ריקים מסביב לראש
+    // נדחוף את הראש לתור כנקודת מוצא (או את השכנים, אבל יותר קל לדחוף את הראש ולתת ללולאה לרוץ)
+    q.push({startX, startY});
+
     int dx[] = {0, 0, 1, -1};
     int dy[] = {1, -1, 0, 0};
-    for(int i=0; i<4; i++) {
-        int nx = startX + dx[i];
-        int ny = startY + dy[i];
-        if(nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
-            if(grid.cells[ny][nx] == EMPTY) {
-                q.push({nx, ny});
-                visited[ny * grid.cols + nx] = true;
-            } else if(grid.cells[ny][nx] == SNAKE) {
-                bodySegments++; // סגמנט שנוגע ישירות בראש
-            }
-        }
-    }
 
     while(!q.empty()) {
-        auto curr = q.front(); q.pop();
-        int cx = curr.first; int cy = curr.second;
+        auto curr = q.front(); 
+        q.pop();
+        int cx = curr.first; 
+        int cy = curr.second;
 
         for(int i = 0; i < 4; i++) {
-            int nx = cx + dx[i]; int ny = cy + dy[i];
+            int nx = cx + dx[i]; 
+            int ny = cy + dy[i];
+
+            // בדיקת גבולות
             if(nx >= 0 && nx < grid.cols && ny >= 0 && ny < grid.rows) {
                 int idx = ny * grid.cols + nx;
-                if(grid.cells[ny][nx] == EMPTY && !visited[idx]) {
-                    visited[idx] = true;
-                    q.push({nx, ny});
-                } 
-                else if(grid.cells[ny][nx] == SNAKE) {
-                    bodySegments++;
+
+                // רק אם לא ביקרנו במשבצת הזו עדיין (בין אם היא נחש ובין אם היא ריקה)
+                if (!visited[idx]) {
+                    
+                    if(grid.cells[ny][nx] == EMPTY) {
+                        // משבצת ריקה - ממשיכים לטייל ממנה
+                        visited[idx] = true;
+                        q.push({nx, ny});
+                    } 
+                    else if(grid.cells[ny][nx] == SNAKE) {
+                        // משבצת נחש - סופרים אותה ומונעים ספירה חוזרת!
+                        visited[idx] = true; 
+                        bodySegments++;
+                    }
                 }
             }
         }
     }
     return bodySegments;
+}
+
+bool Game::canReachTail() {
+    // 1. שליפת מיקום הראש והזנב
+    // הנחה: pair.first = y (row), pair.second = x (col)
+    int startX = snake.body.front().second; 
+    int startY = snake.body.front().first;
+    
+    int tailX = snake.body.back().second;
+    int tailY = snake.body.back().first;
+
+    // אם הראש ליד הזנב מיידית - זה true
+    if (abs(startX - tailX) + abs(startY - tailY) == 1) return true;
+
+    int cols = grid.cols;
+    int rows = grid.rows;
+
+    std::vector<bool> visited(rows * cols, false);
+    std::queue<std::pair<int, int>> q;
+
+    q.push({startX, startY});
+    visited[startY * cols + startX] = true;
+
+    while (!q.empty()) {
+        std::pair<int, int> curr = q.front();
+        q.pop();
+
+        // הגענו לזנב? מעולה.
+        if (curr.first == tailX && curr.second == tailY) {
+            return true;
+        }
+
+        int dx[] = {0, 0, 1, -1};
+        int dy[] = {1, -1, 0, 0};
+
+        for (int i = 0; i < 4; i++) {
+            int nx = curr.first + dx[i];
+            int ny = curr.second + dy[i];
+
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                int index = ny * cols + nx;
+
+                if (!visited[index]) {
+                    // המטרה שלנו היא לבדוק אם אפשר ללכת.
+                    // אפשר ללכת אם המשבצת ריקה, או אם זו המשבצת של הזנב עצמו
+                    bool isTail = (nx == tailX && ny == tailY);
+                    bool isEmpty = (grid.cells[ny][nx] != SNAKE);
+
+                    if (isEmpty || isTail) {
+                        visited[index] = true;
+                        q.push({nx, ny});
+                    }
+                }
+            }
+        }
+    }
+
+    // אם סיימנו את כל ה-BFS ולא מצאנו את הזנב
+    return false;
+}
+
+int Game::getOccupiedNeighbors()
+{
+    auto newHead = snake.body.front(); 
+    auto neck = snake.body[1]; // החוליה שהיינו בה לפני רגע
+    auto currentTail = snake.body.back();
+
+    // חישוב מרחקים לזנב: מאיפה באנו ולאן הגענו
+    int distNew = abs((int)newHead.second - (int)currentTail.second) + abs((int)newHead.first - (int)currentTail.first);
+    int distOld = abs((int)neck.second - (int)currentTail.second) + abs((int)neck.first - (int)currentTail.first);
+    
+    // האם אנחנו מתקרבים (או שומרים מרחק) לזנב?
+    bool movingTowardsTail = (distNew <= distOld);
+
+    int occupiedNeighbors = 0;
+    // ... (חישוב שכנים רגיל כמו קודם) ...
+    int hx = newHead.second;
+    int hy = newHead.first;
+    int dx[] = {0, 0, 1, -1};
+    int dy[] = {1, -1, 0, 0};
+    for(int i=0; i<4; i++) {
+        int cx = hx + dx[i];
+        int cy = hy + dy[i];
+        if (cx < 0 || cx >= grid.cols || cy < 0 || cy >= grid.rows || grid.cells[cy][cx] == SNAKE) {
+            occupiedNeighbors++;
+        }
+    }
+
+    return occupiedNeighbors;
 }
     
