@@ -71,95 +71,74 @@ for episode in range(NUM_EPISODES):
     all_dones = []
 
     while not all(done_flags):
-        #buffer for step
-        step_state = []
-        step_actions = []
-        step_log_probs = []
-        step_values = []
-        step_rewards = []
-        step_dones = []
-
-        if(VISUALIZER):
+        if VISUALIZER:
             renderer.update()
 
-        for i, agent in enumerate(agents):
-
-            if done_flags[i]:#for agents who finished the game we make empty stats
-                reward_value = 0.0 
-                step_state.append(torch.zeros(STATE_DIM,device=device))
-                step_actions.append(torch.tensor(0, device=device))
-                step_rewards.append(torch.tensor(reward_value,dtype=torch.float32,device =device))
-                step_dones.append(torch.tensor(1.0,dtype=torch.float32,device = device))
-                step_log_probs.append(torch.tensor(0.0,dtype=torch.float32,device = device))
-                step_values.append(torch.tensor(0.0,dtype=torch.float32,device = device))
-                continue
-
-            result = agent.step(last_actions[i])#get result from action
-
-            state = torch.tensor([
-            result.distFoodX, 
-            result.distFoodY,
-            result.headX_norm, 
-            result.headY_norm,
-            result.distN, 
-            result.distS, 
-            result.distE, 
-            result.distW,
-            result.distNW, 
-            result.distNE, 
-            result.distSW, 
-            result.distSE,
-            result.isUp,
-            result.isDown,
-            result.isLeft,
-            result.isRight,
-            result.fillPercentage,
-            result.accessibleSpace,
-            result.accessibleSpaceN,
-            result.accessibleSpaceS,
-            result.accessibleSpaceE,
-            result.accessibleSpaceW,
-            result.diffX,
-            result.diffY,
-            result.timePressure
-            ], dtype=torch.float32, device=device).unsqueeze(0)
-
-            #get prob and value and action for next step
-            action_probs = policy(state)
-            value = critic(state)
-            dist = Categorical(action_probs)
-            action_t = dist.sample()
-            log_prob = dist.log_prob(action_t)
-
-            # save step data
-            step_state.append(state.squeeze())
-            step_actions.append(action_t.squeeze())
-            step_log_probs.append(log_prob.squeeze())
-            step_values.append(value.squeeze())
-            step_rewards.append(torch.tensor(result.reward, dtype=torch.float32,device=device))
-            step_dones.append(torch.tensor(float(result.done),device=device))
-
-            #update reward of player
-            ep_rewards[i] += result.reward
-            #get the action of the model
-            last_actions[i] = action_t.item()
-            #chack if player finished the game
-            if result.done:
-                done_flags[i] = True
-                ep_food[i] = result.foodEaten
-                ep_len[i] = result.snakeLen
-                if result.won:
-                    won_flags[i] = True
+        # באפרים זמניים לצעד הנוכחי בלבד
+        current_step_states = []
+        current_step_rewards = []
+        current_step_dones = []
+        
+        # 1. איסוף המצבים מכל הנחשים (עדיין רץ אחד אחד ב-CPU)
+        for i in range(NUM_AGENTS):
+            if done_flags[i]:
+                # נחש מת - מכניסים State ריק כדי לשמור על גודל הבאץ' קבוע (32)
+                current_step_states.append(torch.zeros(STATE_DIM, device=device))
+                current_step_rewards.append(torch.tensor(0.0, device=device))
+                current_step_dones.append(torch.tensor(1.0, device=device))
+            else:
+                # ביצוע צעד בסימולציה
+                result = agents[i].step(last_actions[i])
                 
+                # עדכון סטטיסטיקות
+                ep_rewards[i] += result.reward
+                if result.done:
+                    done_flags[i] = True
+                    ep_food[i] = result.foodEaten
+                    ep_len[i] = result.snakeLen
 
+                # יצירת הטנזור של ה-State
+                # (מחר נעביר את החלק הזה ל-C++ כדי שיהיה עוד יותר מהיר)
+                s = torch.tensor([
+                    result.distFoodX, result.distFoodY, result.headX_norm, result.headY_norm,
+                    result.distN, result.distS, result.distE, result.distW,
+                    result.distNW, result.distNE, result.distSW, result.distSE,
+                    result.isUp, result.isDown, result.isLeft, result.isRight,
+                    result.fillPercentage, result.accessibleSpace,
+                    result.accessibleSpaceN, result.accessibleSpaceS,
+                    result.accessibleSpaceE, result.accessibleSpaceW,
+                    result.diffX, result.diffY, result.timePressure
+                ], dtype=torch.float32, device=device)
+                
+                current_step_states.append(s)
+                current_step_rewards.append(torch.tensor(result.reward, dtype=torch.float32, device=device))
+                current_step_dones.append(torch.tensor(float(result.done), device=device))
 
-        # save per-step tensors
-        all_states.append(torch.stack(step_state))
-        all_actions.append(torch.stack(step_actions))
-        all_log_probs.append(torch.stack(step_log_probs))
-        all_values.append(torch.stack(step_values))
-        all_rewards.append(torch.stack(step_rewards))
-        all_dones.append(torch.stack(step_dones))
+        # 2. ה-קסם: שליחה אחת לכרטיס מסך עבור כל 32 הנחשים יחד!
+        # הופכים את הרשימה לטנזור אחד גדול בגודל [32, 25]
+        batch_states = torch.stack(current_step_states)
+
+        with torch.no_grad():
+            action_probs = policy(batch_states)  # קריאה אחת בלבד!
+            values = critic(batch_states)        # קריאה אחת בלבד!
+            
+            dist = Categorical(action_probs)
+            actions = dist.sample()
+            log_probs = dist.log_prob(actions)
+
+        # 3. שמירה להיסטוריה ועדכון לפעם הבאה
+        # כאן אנחנו שומרים את כל הבאץ' במכה אחת, במקום לולאה
+        if not all(done_flags): # תנאי כדי לא לשמור סתם אם כולם מתו
+             all_states.append(batch_states)
+             all_actions.append(actions)
+             all_log_probs.append(log_probs)
+             all_values.append(values)
+             all_rewards.append(torch.stack(current_step_rewards))
+             all_dones.append(torch.stack(current_step_dones))
+
+        # עדכון הפעולות לצעד הבא
+        for i in range(NUM_AGENTS):
+            last_actions[i] = actions[i].item()
 
 
     #calaulate adventeges

@@ -322,13 +322,13 @@ stepResult Game::step(int action)
                     if (movingTowardsExit) {
                         // זה ה-Holy Grail!
                         // אנחנו גם חוסכים מקום (זיגזג) וגם מתקדמים בדיוק לנקודה שתיפתח בקרוב
-                        result.reward += 1.5f; 
+                        result.reward += 0.1f; 
                     } 
                 } else {
                     // בזבוז שטח
                     result.reward -= 2.0f; 
                 }
-                
+
                 // 4. חישוב מדדים גיאומטריים (עונש שטח כבד)
                 float gridTotalCells = (float)(grid.rows * grid.cols);
                 float freeSquares = result.accessibleSpace * gridTotalCells;

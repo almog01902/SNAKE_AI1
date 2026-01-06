@@ -55,5 +55,11 @@ struct BFSResult {
     std::pair<int, int> lastPoint;
 };
 
+struct ExitInfo {
+    int x;
+    int y;
+    int timeToFree;
+};
+
 
 #endif // STRUCTS_AND_CONSTANTS_H
