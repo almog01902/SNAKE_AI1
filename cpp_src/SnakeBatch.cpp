@@ -91,3 +91,4 @@ SnakeBatch::step_all(std::vector<int> actions, std::vector<bool> done_flags) {
 
     return std::make_tuple(batch_states, batch_rewards, batch_dones, batch_infos);
 }
+

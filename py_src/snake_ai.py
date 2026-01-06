@@ -33,14 +33,16 @@ if GRAPH:
 
 rewards_to_save = episode_rewards
 len_max_to_save = len_max
-batch_env = snake_module.SnakeBatch(NUM_AGENTS, GRID_SIZE, GRID_SIZE, GRID_SIZE // 2, GRID_SIZE // 2, INITIAL_SNAKE_LENGTH)
+
+
+
 
 # rollout
 for episode in range(NUM_EPISODES):
     print("Episode:", len(rewards_to_save))
 
     # --- 2. איפוס מהיר ב-C++ ---
-    batch_env.reset_all()
+    batch_env = snake_module.SnakeBatch(NUM_AGENTS, GRID_SIZE, GRID_SIZE, GRID_SIZE // 2, GRID_SIZE // 2, INITIAL_SNAKE_LENGTH)
 
     # אתחול משתנים למעקב ב-Python
     last_actions = [1 for _ in range(NUM_AGENTS)]  # כולם מתחילים ימינה
@@ -203,8 +205,6 @@ for episode in range(NUM_EPISODES):
     if(GRAPH):
         rewardPlotter.show_rewards(rewards_to_save)
         MaxLenPlotter.show_len(len_max_to_save)
-    if(VISUALIZER):
-        renderer.close()
 
 if(GRAPH):
     rewardPlotter.close()

@@ -21,6 +21,7 @@ public:
     std::tuple<std::vector<float>, std::vector<float>, std::vector<float>, std::vector<float>> 
     step_all(std::vector<int> actions, std::vector<bool> done_flags);
 
+
     // גישה לנחש בודד (עבור ויזואליזציה)
     Game& get_agent(int index);
 };
