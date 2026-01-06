@@ -33,36 +33,25 @@ if GRAPH:
 
 rewards_to_save = episode_rewards
 len_max_to_save = len_max
+batch_env = snake_module.SnakeBatch(NUM_AGENTS, GRID_SIZE, GRID_SIZE, GRID_SIZE // 2, GRID_SIZE // 2, INITIAL_SNAKE_LENGTH)
 
 # rollout
 for episode in range(NUM_EPISODES):
     print("Episode:", len(rewards_to_save))
 
-    # make agents
-    agents = [
-        snake_module.Game(GRID_SIZE, GRID_SIZE, GRID_SIZE // 2, GRID_SIZE // 2, INITIAL_SNAKE_LENGTH)
-        for _ in range(NUM_AGENTS)
-    ]
-    for agent in agents:
-        agent.InitilizeGrid()
+    # --- 2. איפוס מהיר ב-C++ ---
+    batch_env.reset_all()
 
-    #window to show agents play
-    if(VISUALIZER):
-        renderer = AgentRenderer(agents)
-    
-    
-    #update graphes
-
-    #data of agents
-    last_actions = [1 for _ in range(NUM_AGENTS)]  # start going right
+    # אתחול משתנים למעקב ב-Python
+    last_actions = [1 for _ in range(NUM_AGENTS)]  # כולם מתחילים ימינה
     done_flags = [False for _ in range(NUM_AGENTS)]
-    won_flags = [False for _ in range(NUM_AGENTS)]
-    #data to see progress
-    ep_rewards = torch.zeros(NUM_AGENTS)
-    ep_food = torch.zeros(NUM_AGENTS,dtype=torch.int32)
-    ep_len = torch.zeros(NUM_AGENTS,dtype=torch.int32)
+    
+    # סטטיסטיקות
+    ep_rewards = torch.zeros(NUM_AGENTS, device=device) # שים לב: ב-GPU לחישוב מהיר
+    ep_food = torch.zeros(NUM_AGENTS, dtype=torch.int32)
+    ep_len = torch.zeros(NUM_AGENTS, dtype=torch.int32)
 
-    # buffers
+    # באפרים (PPO Buffers)
     all_states = []
     all_actions = []
     all_log_probs = []
@@ -70,75 +59,60 @@ for episode in range(NUM_EPISODES):
     all_rewards = []
     all_dones = []
 
+    # --- 3. הלולאה הראשית (סופר מהירה) ---
     while not all(done_flags):
-        if VISUALIZER:
-            renderer.update()
-
-        # באפרים זמניים לצעד הנוכחי בלבד
-        current_step_states = []
-        current_step_rewards = []
-        current_step_dones = []
         
-        # 1. איסוף המצבים מכל הנחשים (עדיין רץ אחד אחד ב-CPU)
+
+        # === שלב ה-C++: קריאה אחת לכולם ===
+        # שולחים את הפעולות ואת הסטטוס (מי חי/מת)
+        # מקבלים חזרה 4 וקטורים שטוחים (Flat Vectors)
+        flat_states, flat_rewards, flat_dones, flat_infos = batch_env.step_all(last_actions, done_flags)
+
+        # === המרה ל-Tensors (על ה-GPU) ===
+        # Reshape: הופכים את הרשימה השטוחה לטנזור בגודל [32, 25]
+        batch_states = torch.tensor(flat_states, dtype=torch.float32, device=device).view(NUM_AGENTS, STATE_DIM)
+        
+        # Rewards & Dones
+        rewards_tensor = torch.tensor(flat_rewards, dtype=torch.float32, device=device)
+        dones_tensor = torch.tensor(flat_dones, dtype=torch.float32, device=device)
+
+        # === עדכון לוגיקה וסטטיסטיקה בפייתון ===
+        # אנחנו צריכים לעדכן את done_flags ידנית כדי שהלולאה תדע מתי לעצור
+        # וגם לשמור סטטיסטיקות לנחשים שמתו בסיבוב הזה
         for i in range(NUM_AGENTS):
-            if done_flags[i]:
-                # נחש מת - מכניסים State ריק כדי לשמור על גודל הבאץ' קבוע (32)
-                current_step_states.append(torch.zeros(STATE_DIM, device=device))
-                current_step_rewards.append(torch.tensor(0.0, device=device))
-                current_step_dones.append(torch.tensor(1.0, device=device))
-            else:
-                # ביצוע צעד בסימולציה
-                result = agents[i].step(last_actions[i])
+            if not done_flags[i]:
+                # עדכון Reward מצטבר לגרף
+                ep_rewards[i] += flat_rewards[i]
                 
-                # עדכון סטטיסטיקות
-                ep_rewards[i] += result.reward
-                if result.done:
+                # אם הנחש מת הרגע
+                if flat_dones[i] > 0.5: # 1.0 = True
                     done_flags[i] = True
-                    ep_food[i] = result.foodEaten
-                    ep_len[i] = result.snakeLen
+                    # שליפת נתונים מ-infos (סידרנו אותם: [food0, len0, food1, len1...])
+                    ep_food[i] = int(flat_infos[i * 2])
+                    ep_len[i] = int(flat_infos[i * 2 + 1])
 
-                # יצירת הטנזור של ה-State
-                # (מחר נעביר את החלק הזה ל-C++ כדי שיהיה עוד יותר מהיר)
-                s = torch.tensor([
-                    result.distFoodX, result.distFoodY, result.headX_norm, result.headY_norm,
-                    result.distN, result.distS, result.distE, result.distW,
-                    result.distNW, result.distNE, result.distSW, result.distSE,
-                    result.isUp, result.isDown, result.isLeft, result.isRight,
-                    result.fillPercentage, result.accessibleSpace,
-                    result.accessibleSpaceN, result.accessibleSpaceS,
-                    result.accessibleSpaceE, result.accessibleSpaceW,
-                    result.diffX, result.diffY, result.timePressure
-                ], dtype=torch.float32, device=device)
-                
-                current_step_states.append(s)
-                current_step_rewards.append(torch.tensor(result.reward, dtype=torch.float32, device=device))
-                current_step_dones.append(torch.tensor(float(result.done), device=device))
-
-        # 2. ה-קסם: שליחה אחת לכרטיס מסך עבור כל 32 הנחשים יחד!
-        # הופכים את הרשימה לטנזור אחד גדול בגודל [32, 25]
-        batch_states = torch.stack(current_step_states)
-
+        # === רשת נוירונית (Inference) ===
         with torch.no_grad():
-            action_probs = policy(batch_states)  # קריאה אחת בלבד!
-            values = critic(batch_states)        # קריאה אחת בלבד!
+            action_probs = policy(batch_states)
+            values = critic(batch_states)
             
             dist = Categorical(action_probs)
             actions = dist.sample()
             log_probs = dist.log_prob(actions)
 
-        # 3. שמירה להיסטוריה ועדכון לפעם הבאה
-        # כאן אנחנו שומרים את כל הבאץ' במכה אחת, במקום לולאה
-        if not all(done_flags): # תנאי כדי לא לשמור סתם אם כולם מתו
-             all_states.append(batch_states)
-             all_actions.append(actions)
-             all_log_probs.append(log_probs)
-             all_values.append(values)
-             all_rewards.append(torch.stack(current_step_rewards))
-             all_dones.append(torch.stack(current_step_dones))
+        # === שמירה לבאפרים ===
+        # שומרים רק אם יש עדיין נחשים חיים (אחרת זה סתם באפר זבל בסוף)
+        if not all(done_flags):
+            all_states.append(batch_states)
+            all_actions.append(actions)
+            all_log_probs.append(log_probs)
+            all_values.append(values)
+            all_rewards.append(rewards_tensor)
+            all_dones.append(dones_tensor)
 
-        # עדכון הפעולות לצעד הבא
-        for i in range(NUM_AGENTS):
-            last_actions[i] = actions[i].item()
+        # === הכנה לסיבוב הבא ===
+        # המרה חזרה ל-list פשוט של int עבור C++
+        last_actions = actions.cpu().numpy().tolist()
 
 
     #calaulate adventeges

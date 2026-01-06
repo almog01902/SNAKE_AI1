@@ -5,6 +5,7 @@
 #include "Game.h"
 #include "StructsAndConstants.h"
 #include "Snake.h"
+#include "SnakeBatch.h"
 
 namespace py = pybind11;
 
@@ -51,9 +52,16 @@ PYBIND11_MODULE(snake_module, m) {
         .def("InitilizeGrid", &Game::initilizeGrid)
         .def("render", &Game::render)
         .def("getGrid", &Game::getGrid);
+
+
+    py::class_<SnakeBatch>(m, "SnakeBatch")
+        .def(py::init<int, int, int, int, int, int>()) // בנאי
+        .def("reset_all", &SnakeBatch::reset_all)       // איפוס
+        .def("step_all", &SnakeBatch::step_all)         // הצעד המהיר
+        .def("get_agent", &SnakeBatch::get_agent, py::return_value_policy::reference); // גישה לנחש בודד
 }
 
 
 //cd /d d:\snake_ai\cpp_src
-//cl /O2 /LD /EHsc /std:c++17 /I"D:\snake_python_lib\Python312\include" /I"D:\snake_python_lib\Python312\Lib\site-packages\pybind11\include" snake_binding.cpp snake.cpp game.cpp grid.cpp /link /LIBPATH:"D:\snake_python_lib\Python312\libs" python312.lib /OUT:snake_module.pyd
+//cl /O2 /LD /EHsc /std:c++17 /I"D:\snake_python_lib\Python312\include" /I"D:\snake_python_lib\Python312\Lib\site-packages\pybind11\include" snake_binding.cpp snake.cpp game.cpp grid.cpp SnakeBatch.cpp /link /LIBPATH:"D:\snake_python_lib\Python312\libs" python312.lib /OUT:snake_module.pyd
 //compiled with visual studio cl without it the moudle will not work

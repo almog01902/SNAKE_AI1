@@ -23,6 +23,9 @@ class Game
     float minDistTOFood;
     int stepsSinceLastFood =0;
     float lastStepRatio = 1.0f;
+    int startX;
+    int startY;
+    int initialLength;
     std::vector<int> _bfsVisited;      // במקום bool, נשתמש ב-int לדורות
     std::vector<int> _timeToFreeCache; // עבור getExitPoint
     std::queue<std::pair<int, int>> _bfsQueue;

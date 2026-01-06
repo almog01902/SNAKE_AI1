@@ -6,19 +6,54 @@
 
     
     Game::Game(int gridRows, int gridCols, int startX, int startY, int initialLength) 
-        :state(MENU),snake(startX, startY, initialLength), grid(gridRows, gridCols),isAI(false) {}
+        :state(MENU), snake(startX,startY,initialLength) ,grid(gridRows, gridCols),isAI(false) 
+        {
+            this->startX = startX;
+            this->startY = startY;
+            this->initialLength = initialLength;
+
+            // ... שאר קוד האתחול של הבנאי ...
+            initilizeGrid(); 
+        }
 
         //---game functions---
-    void Game::initilizeGrid() {// Initialize the grid and place the snake and food to start the game
+    void Game::initilizeGrid() { 
+        // 1. יצירת הנחש (האובייקט קיים, אבל עוד לא על הגריד)
+        snake = Snake(startX, startY, initialLength); 
+
+        // 2. איפוס הגריד (הכל נהיה ריק)
         grid.reset();
-        grid.placeFood();
-        grid.update(snake); // Update the grid with the snake's position and food
+
+        // --- התיקון החשוב כאן ---
+        
+        // שלב א: "מדביקים" את הנחש לגריד כדי לתפוס את המשבצות שלו
+        grid.placeSnake(snake); 
+        
+        // שלב ב: עכשיו מגרילים אוכל. הפונקציה תראה שהמשבצות של הנחש תפוסות
+        // ותחפש מקום אחר באופן אוטומטי (בגלל ה-while שיש לך שם)
+        grid.placeFood(); 
+        
+        // שלב ג: עדכון סופי של התצוגה (מנקה הכל ומצייר שוב נקי)
+        // זה בסדר לקרוא לזה שוב, כי המיקום של האוכל (foodPosition) כבר נשמר בטוח בצד
+        grid.update(snake); 
+
+        // -------------------------
+
         score = 0;
         foodEaten = 0;
         state = PLAYING;
+        
+        // שאר הקוד שלך...
         minDistTOFood = fabs(GetDistanceToFoodX()) + fabs(GetDistanceToFoodY());
-        _bfsVisited.resize(grid.rows * grid.cols, 0);
-        _timeToFreeCache.resize(grid.rows * grid.cols, -1);
+
+        if (_bfsVisited.size() != grid.rows * grid.cols) {
+            _bfsVisited.resize(grid.rows * grid.cols, 0);
+            _timeToFreeCache.resize(grid.rows * grid.cols, -1);
+        } else {
+            std::fill(_bfsVisited.begin(), _bfsVisited.end(), 0);
+            std::fill(_timeToFreeCache.begin(), _timeToFreeCache.end(), -1);
+        }
+        
         _bfsGeneration = 0;
     }
 
@@ -807,4 +842,108 @@ ExitInfo Game::getExitPoint() {
     
     return { bestExit.second, bestExit.first, minTimeToFree };
 }
+
+
+// --- הוסף את המחלקה הזו ב-snake_module.cpp ---
+
+class SnakeBatch {
+public:
+    std::vector<Game> games;
+    int num_agents;
+    int state_dim;
+
+    // בנאי: יוצר את כל הנחשים במכה אחת
+    SnakeBatch(int n_agents, int rows, int cols, int startX, int startY, int len) 
+        : num_agents(n_agents), state_dim(25) { // 25 זה גודל ה-Input שלנו
+        
+        games.reserve(num_agents);
+        for (int i = 0; i < num_agents; ++i) {
+            games.emplace_back(rows, cols, startX, startY, len);
+            games[i].initilizeGrid();
+        }
+    }
+
+    // פונקציה לאיפוס מהיר בין פרקים (בלי ליצור אובייקטים מחדש!)
+    void reset_all() {
+        for (auto& game : games) {
+            game.initilizeGrid(); // נניח שזו פונקציית האיפוס שלך
+            // אם צריך לאפס משתנים נוספים, עשה זאת כאן
+        }
+    }
+
+    // הפונקציה הראשית: מקבלת פעולות לכולם, מחזירה את כל המצבים
+    // מחזירה Tuple: (States, Rewards, Dones, Infos)
+    std::tuple<std::vector<float>, std::vector<float>, std::vector<float>, std::vector<float>> 
+    step_all(std::vector<int> actions, std::vector<bool> done_flags) {
+        
+        // הכנת באפרים (וקטורים שטוחים למהירות מקסימלית)
+        std::vector<float> batch_states;
+        batch_states.reserve(num_agents * state_dim); // 32 * 25
+        
+        std::vector<float> batch_rewards;
+        batch_rewards.reserve(num_agents);
+        
+        std::vector<float> batch_dones;
+        batch_dones.reserve(num_agents);
+
+        std::vector<float> batch_infos; // אוכל, אורך וכו' (אופציונלי)
+        batch_infos.reserve(num_agents * 2); 
+
+        for (int i = 0; i < num_agents; ++i) {
+            if (done_flags[i]) {
+                // נחש מת: דוחפים אפסים כדי לשמור על סדר
+                for(int j=0; j<state_dim; ++j) batch_states.push_back(0.0f);
+                batch_rewards.push_back(0.0f);
+                batch_dones.push_back(1.0f);
+                batch_infos.push_back(0); // Food
+                batch_infos.push_back(0); // Len
+            } 
+            else {
+                // --- ביצוע הצעד (הלוגיקה הרגילה שלך) ---
+                stepResult res = games[i].step(actions[i]);
+
+                // 1. דחיפת ה-State (שטוח)
+                batch_states.push_back(res.distFoodX);
+                batch_states.push_back(res.distFoodY);
+                batch_states.push_back(res.headX_norm);
+                batch_states.push_back(res.headY_norm);
+                batch_states.push_back(res.distN);
+                batch_states.push_back(res.distS);
+                batch_states.push_back(res.distE);
+                batch_states.push_back(res.distW);
+                batch_states.push_back(res.distNW);
+                batch_states.push_back(res.distNE);
+                batch_states.push_back(res.distSW);
+                batch_states.push_back(res.distSE);
+                batch_states.push_back(res.isUp);
+                batch_states.push_back(res.isDown);
+                batch_states.push_back(res.isLeft);
+                batch_states.push_back(res.isRight);
+                batch_states.push_back(res.fillPercentage);
+                batch_states.push_back(res.accessibleSpace);
+                batch_states.push_back(res.accessibleSpaceN);
+                batch_states.push_back(res.accessibleSpaceS);
+                batch_states.push_back(res.accessibleSpaceE);
+                batch_states.push_back(res.accessibleSpaceW);
+                batch_states.push_back(res.diffX);
+                batch_states.push_back(res.diffy);
+                batch_states.push_back(res.timePressure);
+                // (הערה: אם הוספת שדות חדשים כמו exitDirX, תוסיף אותם כאן!)
+
+                // 2. Rewards & Dones
+                batch_rewards.push_back(res.reward);
+                batch_dones.push_back(res.done ? 1.0f : 0.0f);
+
+                // 3. Stats
+                batch_infos.push_back((float)res.foodEaten);
+                batch_infos.push_back((float)res.snakeLen);
+            }
+        }
+
+        return std::make_tuple(batch_states, batch_rewards, batch_dones, batch_infos);
+    }
+    
+    // פונקציה לגישה למשחק בודד (עבור ה-Visualizer אם צריך)
+    Game& get_agent(int index) { return games[index]; }
+};
     
