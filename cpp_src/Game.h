@@ -64,7 +64,7 @@ class Game
     int bodySegmentsInArea(pair<int,int> head);
     bool canReachTail();
     int getOccupiedNeighbors();
-    pair<int, int> getExitPoint();
+    ExitInfo getExitPoint();
 
 
     //---debug functions---

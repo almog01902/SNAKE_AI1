@@ -298,44 +298,64 @@ stepResult Game::step(int action)
         if (result.accessibleSpace < 0.45f) {
             
             
-            if(!canReachTail())
+            if (!canReachTail()) 
             {
-                // 1. מציאת נקודת היציאה האופטימלית ("החוליה החלשה")
-                // במקום סתם ללכת לזנב, אנחנו הולכים לחוליה שתוחמת אותנו ותיעלם ראשונה
-                std::pair<int, int> targetExit = getExitPoint(); // {y, x}
+                // 1. קבלת מידע מורחב על היציאה (כולל זמן שחרור)
+                ExitInfo exitInfo = getExitPoint(); 
+                
+                // המרה ל-pair כדי לשמור על תאימות לחישובים הגיאומטריים בהמשך הקוד
+                // (שומרים על הפורמט {y, x} שהיה לך קודם)
+                std::pair<int, int> targetExit = {exitInfo.y, exitInfo.x};
 
                 auto newHead = snake.body.front(); 
                 auto neck = snake.body[1]; 
                 
                 // חישוב המרחק: האם אנחנו מתקרבים לפתח המילוט?
-                // שים לב: targetExit.first זה Y, targetExit.second זה X
                 int distNew = abs((int)newHead.second - targetExit.second) + abs((int)newHead.first - targetExit.first);
                 int distOld = abs((int)neck.second - targetExit.second) + abs((int)neck.first - targetExit.first);
                 
                 bool movingTowardsExit = (distNew <= distOld);
-
-                // 2. ספירת שכנים (נשאר אותו דבר)
                 int neighbors = getOccupiedNeighbors();
 
-                // 3. מתן בונוס/עונש על זיגזג + כיוון לפתח המילוט
-                if (neighbors >= 2) {
-                    if (movingTowardsExit) {
-                        // זה ה-Holy Grail!
-                        // אנחנו גם חוסכים מקום (זיגזג) וגם מתקדמים בדיוק לנקודה שתיפתח בקרוב
-                        result.reward += 0.1f; 
-                    } 
-                } else {
-                    // בזבוז שטח
-                    result.reward -= 2.0f; 
+                // --- לוגיקת הפרסים החדשה (Time-Aware) ---
+
+                // תרחיש א': חסימה מוחלטת או רחוקה מאוד (יותר מ-1000 צעדים)
+                if (exitInfo.timeToFree > 1000) {
+                    // הנחש כלא את עצמו! עונש כבד כדי שילמד להימנע מהמהלך הזה
+                    result.reward -= 5.0f; 
+                }
+                // תרחיש ב': היציאה "לא איכותית" (חוסם את הזנב הקרוב, הולך לגוף רחוק)
+                else if (exitInfo.timeToFree > 5) {
+                    // עונש על כך שהוא מתפשר על יציאה איטית
+                    result.reward -= 2.0f;
+                    // עונש נוסף אם זה ממש רחוק
+                    result.reward -= (0.1f * exitInfo.timeToFree);
+                }
+                // תרחיש ג': יציאה טובה (זנב או קרוב אליו) - כאן נכנס הזיגזג החכם
+                else {
+                    if (neighbors >= 2) {
+                        if (movingTowardsExit) {
+                            // בונוס קטן: מעודד הישרדות, אבל לא "חליבת נקודות"
+                            result.reward += 0.1f; 
+                        } else {
+                            // עונש קל על התרחקות מהיציאה בצפיפות
+                            result.reward -= 0.05f;
+                        }
+                    } else {
+                        // שטח פתוח יחסית: אל תעניש אותו ב-2.0!
+                        // תן עונש מזערי כדי שיעדיף לצאת למרחב הפתוח (לתפוח)
+                        result.reward -= 0.01f; 
+                    }
                 }
 
-                // 4. חישוב מדדים גיאומטריים (עונש שטח כבד)
+                // --- חישוב מדדים גיאומטריים (Space Penalty) ---
+                // השארתי את הקוד הזה כמעט ללא שינוי, הוא חשוב לניהול השטח
+                
                 float gridTotalCells = (float)(grid.rows * grid.cols);
                 float freeSquares = result.accessibleSpace * gridTotalCells;
 
                 int distEndToExit = abs((int)result.furthestPoint.second - targetExit.second) + abs((int)result.furthestPoint.first - targetExit.first);
                 
-                // שים לב: actualTailDelay מחושב מול היציאה האמיתית עכשיו
                 int actualTailDelay = max(distNew, bodySegmentsInArea(newHead));
                 float survivalRatio = freeSquares / (actualTailDelay + 2.0f);
                 float continuityFactor = 1.0f / (distEndToExit + 1.0f);
@@ -716,7 +736,7 @@ int Game::getOccupiedNeighbors()
 }
 
 // מחזירה את הקואורדינטות של החוליה שתפתח לנו את המלכודת הכי מהר
-std::pair<int, int> Game::getExitPoint() {
+ExitInfo Game::getExitPoint() {
     
     int n = snake.body.size();
     
@@ -785,6 +805,6 @@ std::pair<int, int> Game::getExitPoint() {
         _timeToFreeCache[part.first * grid.cols + part.second] = -1;
     }
     
-    return bestExit; 
+    return { bestExit.second, bestExit.first, minTimeToFree };
 }
     
