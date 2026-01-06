@@ -147,7 +147,14 @@ for episode in range(NUM_EPISODES):
     advantages_normalized_b = advantages_normalized_b * mask_b
 
 
-
+    START_REDUCING_EPISODE = 4200
+    DURATION = 1000
+    START_ENTROPY = 0.02
+    END_ENTROPY = 0.001
+    entropyScheduler = EntropyScheduler(START_ENTROPY,END_ENTROPY,START_REDUCING_EPISODE,DURATION)
+    epis = len(rewards_to_save)
+    curr_entr = entropyScheduler.get_ent_coeff(epis)
+    print(f"current entr cuff :{curr_entr}")
     
 
     #####
@@ -175,7 +182,7 @@ for episode in range(NUM_EPISODES):
         entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
         
         # Loss 
-        loss = actor_loss + 0.5 * critic_loss - CURR_ENTR * entropy_masked
+        loss = actor_loss + 0.5 * critic_loss - curr_entr * entropy_masked
 
         optimizer.zero_grad()
         loss.backward()
