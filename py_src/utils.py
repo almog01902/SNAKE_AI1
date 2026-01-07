@@ -3,6 +3,7 @@ import config
 import torch
 import pickle
 import matplotlib.pyplot as plt
+import pygame
 import time
 import numpy as np
 
@@ -189,3 +190,54 @@ class NetworkVisualizer:
     def close(self):
         plt.ioff()
         plt.close()
+
+class PygameRenderer:
+    def __init__(self, agent, tile_size=30):
+        self.agent = agent
+        self.grid_size = agent.rows # נניח 20
+        self.tile_size = tile_size
+        self.width = self.grid_size * self.tile_size
+        self.height = self.width
+        
+        pygame.init()
+        self.screen = pygame.display.set_mode((self.width, self.height + 100)) # עוד 100 פיקסלים לטקסט
+        pygame.display.set_caption("Snake AI Master - 20x20")
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont("Arial", 18)
+
+    def draw_grid(self, grid, info):
+        self.screen.fill((30, 30, 30)) # רקע כהה
+        
+        # ציור הגריד
+        for r in range(self.grid_size):
+            for c in range(self.grid_size):
+                val = grid[r][c]
+                rect = (c * self.tile_size, r * self.tile_size, self.tile_size - 1, self.tile_size - 1)
+                
+                if val == 1: # ראש (סתם דוגמה למספרים)
+                    pygame.draw.rect(self.screen, (50, 255, 50), rect)
+                elif val == 2: # גוף
+                    pygame.draw.rect(self.screen, (0, 180, 0), rect)
+                elif val == 3: # אוכל
+                    pygame.draw.rect(self.screen, (255, 0, 0), rect)
+        
+        # תצוגת נתונים מתחת למשחק
+        y_offset = self.height + 10
+        score_text = self.font.render(f"Length: {info['len']} | Reward: {info['rew']:.2f}", True, (255, 255, 255))
+        self.screen.blit(score_text, (10, y_offset))
+        
+        pygame.display.flip()
+
+    def update(self, info, fps=15):
+        # בדיקה אם המשתמש סגר את החלון
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+        
+        grid = self.agent.getGrid()
+        self.draw_grid(grid, info)
+        self.clock.tick(fps)
+        return True
+
+    def close(self):
+        pygame.quit()

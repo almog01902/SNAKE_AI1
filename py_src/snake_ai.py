@@ -147,10 +147,10 @@ for episode in range(NUM_EPISODES):
     advantages_normalized_b = advantages_normalized_b * mask_b
 
 
-    START_REDUCING_EPISODE = 5800
+    START_REDUCING_EPISODE = 6900
     DURATION = 1000
-    START_ENTROPY = 0.001
-    END_ENTROPY = 0.0005
+    START_ENTROPY = 0.0005
+    END_ENTROPY = 0.0001
     entropyScheduler = EntropyScheduler(START_ENTROPY,END_ENTROPY,START_REDUCING_EPISODE,DURATION)
     epis = len(rewards_to_save)
     curr_entr = entropyScheduler.get_ent_coeff(epis)

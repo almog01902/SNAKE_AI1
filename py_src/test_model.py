@@ -1,11 +1,28 @@
 import torch
 import snake_module
+import pygame
+import numpy as np
 from config import *
 from utils import *
 from model.actor_critic import make_models
 from logger import setup_logger
 
+
 setup_logger()
+
+# === pygame ===
+TILE_SIZE = 30
+WINDOW_SIZE = GRID_SIZE * TILE_SIZE
+pygame.init()
+screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE + 150)) # שטח נוסף למטה לנתונים
+pygame.display.set_caption("Snake AI - Master View")
+clock = pygame.time.Clock()
+font = pygame.font.SysFont("Arial", 20)
+
+# === Load models ===
+policy, critic, _ = make_models(STATE_DIM, ACTION_DIM, LR, device)
+load_checkpoints(policy, critic, _, [], [], prepare_checkpoint_paths())
+
 # === Load models ===
 policy, critic, _ = make_models(STATE_DIM, ACTION_DIM, LR, device)
 load_checkpoints(policy, critic, _, [], [], prepare_checkpoint_paths())
@@ -14,9 +31,7 @@ load_checkpoints(policy, critic, _, [], [], prepare_checkpoint_paths())
 agent = snake_module.Game(GRID_SIZE, GRID_SIZE, GRID_SIZE // 2, GRID_SIZE // 2, INITIAL_SNAKE_LENGTH)
 agent.InitilizeGrid()
 
-# Optional: visualizer
 
-renderer = AgentRenderer([agent])
 
 # Initial state
 last_action = 1  # start moving right
@@ -24,7 +39,9 @@ done = False
 
 while not done:
 
-    renderer.update()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            done = True
 
     result = agent.step(last_action)
     # Get state
@@ -60,48 +77,55 @@ while not done:
     with torch.no_grad():  # לא רוצים לעדכן גרדיאנטים
         action_probs = policy(state)
         action_t = torch.argmax(action_probs)  # תמיד בוחר את הטוב ביותר
-        state_value = critic(state).item()
-        probs_dict = {
-        "Up": f"{action_probs[0][0]:.2f}",
-        "Down": f"{action_probs[0][1]:.2f}",
-        "Left": f"{action_probs[0][2]:.2f}",
-        "Right": f"{action_probs[0][3]:.2f}"
-    }
+        last_action = action_t.item()
 
-    last_action = action_t.item()
+    screen.fill((20, 20, 20))
+
+    grid = np.array(agent.getGrid())
+
+    for r in range(GRID_SIZE):
+        for c in range(GRID_SIZE):
+            rect = (c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE - 1, TILE_SIZE - 1)
+            val = grid[r][c]
+            
+            if val == 1: # ראש
+                pygame.draw.rect(screen, (50, 255, 50), rect)
+            elif val == 2: # גוף
+                pygame.draw.rect(screen, (0, 150, 0), rect)
+            elif val == 3: # אוכל
+                pygame.draw.rect(screen, (255, 50, 50), rect)
+            else: # משבצת ריקה
+                pygame.draw.rect(screen, (40, 40, 40), rect, 1)
+
+    #=== HUD ===
+    y_text = WINDOW_SIZE + 20
+    ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT']
+    
+    # שורת סטטוס
+    info_str = f"Len: {result.snakeLen} | Reward: {result.reward:.2f} | Action: {ACTIONS[last_action]}"
+    txt_surface = font.render(info_str, True, (255, 255, 255))
+    screen.blit(txt_surface, (10, y_text))
+    
+    # תצוגת הסתברויות
+    probs_str = " | ".join([f"{ACTIONS[i]}: {action_probs[0][i]:.2f}" for i in range(4)])
+    probs_surface = font.render(probs_str, True, (200, 200, 0))
+    screen.blit(probs_surface, (10, y_text + 40))
+
+    # תצוגת מרחב נגיש
+    space_str = f"Space: {result.accessibleSpace:.2f} | Time: {result.timePressure:.2f}"
+    space_surface = font.render(space_str, True, (0, 200, 255))
+    screen.blit(space_surface, (10, y_text + 80))
+
+    pygame.display.flip()
+    done = result.done
+    clock.tick(40) # מהירות התצוגה
+
+    
     done = result.done
 
+    if done:
+        print(f"Final Score: {result.snakeLen}")
+        pygame.time.wait(2000) # מחכה 2 שניות לפני סגירה
 
-    ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT']
-    probs_dict = {ACTIONS[i]: f"{action_probs[0][i]:.2f}" for i in range(4)}
-    print(f"\n" + "="*40)
-    print(f"Step Result | Length: {result.snakeLen} | Reward: {result.reward:.2f}")
-    print(f"Action to be taken: {ACTIONS[action_t]}")
-    print(f"Probabilities:  {probs_dict}")
 
-    grid_size = 20 
 
-    # המרחק מהמרכז (0.5) כפול 2 נותן ערך בין 0 ל-1, ואז כפול גודל הלוח
-    dist_x_tiles = abs(result.distFoodX - 0.5) * 2 * (grid_size - 1)
-    dist_y_tiles = abs(result.distFoodY - 0.5) * 2 * (grid_size - 1)
-    current_manhattan = dist_x_tiles + dist_y_tiles
-
-    print(f"\n--- Distance Diagnostics ---")
-    print(f"Estimated Distance to Food: {current_manhattan:.2f} tiles")
-    print(f"Raw Inputs: X={result.distFoodX:.2f}, Y={result.distFoodY:.2f}")
-        
-    print(f"\n--- Movement Strategy ---")
-    print(f"Probabilities:  {probs_dict}")
-    print(f"Action Chosen:  {['UP', 'RIGHT', 'DOWN', 'LEFT'][last_action]}")
-    
-    print(f"\n--- Spatial Awareness (Look-ahead) ---")
-    print(f"Current Space:  {result.accessibleSpace:.2f}")
-    print(f"Future N: {result.accessibleSpaceN:.2f} | Future S: {result.accessibleSpaceS:.2f}")
-    print(f"Future E: {result.accessibleSpaceE:.2f} | Future W: {result.accessibleSpaceW:.2f}")
-    
-    print(f"\n--- State Info ---")
-    print(f"Hunger (Time): {result.timePressure:.2f} | Fill%: {result.fillPercentage:.2f}")
-    print("="*40)
-
-if VISUALIZER:
-    renderer.close()
