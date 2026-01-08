@@ -118,7 +118,7 @@ while not done:
 
     pygame.display.flip()
     done = result.done
-    clock.tick(40) # מהירות התצוגה
+    clock.tick(20) # מהירות התצוגה
 
     
     done = result.done
