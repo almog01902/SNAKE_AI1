@@ -308,6 +308,8 @@ stepResult Game::step(int action)
             result.done = true;
             result.won = true;
             result.reward = 2000.0f;
+            result.foodEaten = foodEaten;
+            result.snakeLen = snake.getSnakeLen(); 
             state = GAMEWON;
             return result;
         } else {
