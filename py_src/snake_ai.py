@@ -8,6 +8,7 @@ from torch.distributions import Categorical
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 import gc
 import pickle
 from config import *
@@ -39,11 +40,16 @@ len_max_to_save = len_max
 
 # rollout
 for episode in range(NUM_EPISODES):
-    print("Episode:", len(rewards_to_save))
+    episode = len(rewards_to_save)
 
     # --- 2. איפוס מהיר ב-C++ ---
-    batch_env = snake_module.SnakeBatch(NUM_AGENTS, GRID_SIZE, GRID_SIZE, GRID_SIZE // 2, GRID_SIZE // 2, INITIAL_SNAKE_LENGTH)
 
+    MIN_GRID = 10
+    MAX_GRID = 40
+    grid_size = random.randint
+    batch_env = snake_module.SnakeBatch(NUM_AGENTS, grid_size, grid_size, grid_size // 2, grid_size // 2, INITIAL_SNAKE_LENGTH)
+
+    print(f"Episode {episode} | Training on Grid: {grid_size}x{grid_size}")
     # אתחול משתנים למעקב ב-Python
     last_actions = [1 for _ in range(NUM_AGENTS)]  # כולם מתחילים ימינה
     done_flags = [False for _ in range(NUM_AGENTS)]
