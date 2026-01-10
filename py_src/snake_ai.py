@@ -40,13 +40,16 @@ len_max_to_save = len_max
 
 # rollout
 for episode in range(NUM_EPISODES):
+
+    torch.cuda.empty_cache()
+    gc.collect()
     episode = len(rewards_to_save)
 
     # --- 2. איפוס מהיר ב-C++ ---
 
     MIN_GRID = 10
     MAX_GRID = 40
-    grid_size = random.randint
+    grid_size = random.randint(MIN_GRID,MAX_GRID)
     batch_env = snake_module.SnakeBatch(NUM_AGENTS, grid_size, grid_size, grid_size // 2, grid_size // 2, INITIAL_SNAKE_LENGTH)
 
     print(f"Episode {episode} | Training on Grid: {grid_size}x{grid_size}")
@@ -162,40 +165,58 @@ for episode in range(NUM_EPISODES):
     curr_entr = entropyScheduler.get_ent_coeff(epis)
     print(f"current entr cuff :{curr_entr}")
     
+    MINI_BATCH_SIZE = 1024
+    batch_size = state_b.size(0)
 
-    #####
     for _ in range(UPDATE_STEP):
-        #calaulate the probibality
-        new_action_probs = policy(state_b)
-        new_values = critic(state_b).squeeze()
+        # יצירת אינדקסים רנדומליים וערבוב שלהם
+        indices = torch.randperm(batch_size)
         
+        # לולאה שעוברת על הנתונים בחתיכות קטנות
+        for start in range(0, batch_size, MINI_BATCH_SIZE):
+            end = start + MINI_BATCH_SIZE
+            mb_idx = indices[start:end]
 
-        dist = Categorical(new_action_probs)
-        new_log_probs = dist.log_prob(actions_b)
-        entropy = dist.entropy().mean()
+            # שליפת החתיכה הרלוונטית מכל באפר
+            mb_states = state_b[mb_idx]
+            mb_actions = actions_b[mb_idx]
+            mb_old_log_probs = old_log_probs_b[mb_idx]
+            mb_advantages = advantages_normalized_b[mb_idx]
+            mb_returns = returns_b[mb_idx]
+            mb_mask = mask_b[mb_idx]
 
-        # Ratio 
-        ratio = torch.exp(new_log_probs - old_log_probs_b)
+            # חישוב הסתברויות וערכים (רק על המיני-באץ')
+            new_action_probs = policy(mb_states)
+            new_values = critic(mb_states).squeeze()
 
-        # PPO Clipped Loss 
-        surr1 = ratio * advantages_normalized_b
-        surr2 = torch.clamp(ratio, 1 - EPS_CLIPS, 1 + EPS_CLIPS) * advantages_normalized_b
-        
-        actor_loss = -(torch.min(surr1, surr2)* mask_b).sum() / (mask_b.sum()+1e-8)
-        critic_loss_raw = F.mse_loss(new_values, returns_b.view(-1), reduction='none')
-        critic_loss = (critic_loss_raw*mask_b).sum() / (mask_b.sum()+ 1e-8)
+            dist = Categorical(new_action_probs)
+            new_log_probs = dist.log_prob(mb_actions)
+            
+            # Ratio
+            ratio = torch.exp(new_log_probs - mb_old_log_probs)
 
-        entropy_masked = (dist.entropy() * mask_b).sum() / (mask_b.sum() + 1e-8)
-        
-        # Loss 
-        loss = actor_loss + 0.5 * critic_loss - curr_entr * entropy_masked
+            # PPO Clipped Loss
+            surr1 = ratio * mb_advantages
+            surr2 = torch.clamp(ratio, 1 - EPS_CLIPS, 1 + EPS_CLIPS) * mb_advantages
+            
+            # Loss חישוב (שמירה על הסינטקס המדויק שלך עם המסיכה)
+            actor_loss = -(torch.min(surr1, surr2) * mb_mask).sum() / (mb_mask.sum() + 1e-8)
+            critic_loss_raw = F.mse_loss(new_values, mb_returns.view(-1), reduction='none')
+            critic_loss = (critic_loss_raw * mb_mask).sum() / (mb_mask.sum() + 1e-8)
 
-        optimizer.zero_grad()
-        loss.backward()
-        # Gradient Clipping
-        torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=0.5)
-        torch.nn.utils.clip_grad_norm_(critic.parameters(), max_norm=0.5)
-        optimizer.step()
+            entropy_masked = (dist.entropy() * mb_mask).sum() / (mb_mask.sum() + 1e-8)
+            
+            # Loss סופי
+            loss = actor_loss + 0.5 * critic_loss - curr_entr * entropy_masked
+
+            # עדכון משקולות
+            optimizer.zero_grad()
+            loss.backward()
+            
+            # Gradient Clipping
+            torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=0.5)
+            torch.nn.utils.clip_grad_norm_(critic.parameters(), max_norm=0.5)
+            optimizer.step()
 
     #get avg score
     avg_reward = ep_rewards.mean().item()
