@@ -1,6 +1,6 @@
 import torch
 #constants
-NUM_AGENTS = 32
+NUM_AGENTS = 10
 GRID_SIZE = 30
 INITIAL_SNAKE_LENGTH =3
 STATE_DIM = 25
