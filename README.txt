@@ -4,7 +4,9 @@ A hybrid project featuring a high-performance Snake game engine written in C++ a
 The project demonstrates the integration of low-level systems with high-level AI frameworks through Pybind11.
 
 Overview
-The goal of this project was to create an efficient environment for training an AI to play Snake. By offloading the game logic and physics to C++, the training process benefits from significantly higher simulation speeds compared to pure Python implementations.
+The primary objective of this project was to develop a highly generalized AI agent capable of playing Snake on any grid size without retraining.
+
+Unlike standard approaches that use CNNs (which often overfit to specific board dimensions and spatial features), this project focuses on a minimalist input space. By using a carefully selected set of relative features rather than raw pixels, the model achieves robust performance across diverse environments.
 
 🛠 Tech Stack
 Game Engine: C++ (Object-Oriented Design)
