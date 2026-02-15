@@ -1,48 +1,49 @@
-Snake AI - Reinforcement Learning Agent
-A hybrid project featuring a high-performance Snake game engine written in C++ and an autonomous agent trained using Deep Reinforcement Learning (PPO) in Python.
+Project Objective
+The primary goal of this project was to explore how an agent can learn complex 
+decision-making through Reinforcement Learning (RL) and, 
+more importantly, achieve Zero-Shot Generalization.
 
-The project demonstrates the integration of low-level systems with high-level AI frameworks through Pybind11.
+The challenge was to train an agent on a fixed-size environment with the minimum amount of inputs and 
+enable it to perform optimally across various board dimensions 
+without any architecture changes or re-training.
 
-Overview
-The primary objective of this project was to develop a highly generalized AI agent capable of playing Snake on any grid size without retraining.
+The Generalization Breakthrough
+Unlike standard implementations that are "locked" to a specific grid size, this model focuses on Spatial Invariance:
 
-Unlike standard approaches that use CNNs (which often overfit to specific board dimensions and spatial features), this project focuses on a minimalist input space. By using a carefully selected set of relative features rather than raw pixels, the model achieves robust performance across diverse environments.
+Train Once, Run Anywhere: The agent was trained exclusively on a 20x20 grid.
 
-🛠 Tech Stack
-Game Engine: C++ (Object-Oriented Design)
+Result: Due to the relative feature representation and robust Reward Shaping, 
+the resulting model can successfully navigate and complete Snake boards of any size, 
+demonstrating true algorithmic generalization.
 
-AI Framework: Python (PyTorch / Stable Baselines3)
+Key Technical Features
+Hybrid Engine: High-performance game logic implemented in C++20 for maximum sample throughput, 
+exposed to Python via Pybind11.
 
-Communication: Pybind11 (C++/Python bindings)
+PPO Architecture: Utilizes Proximal Policy Optimization with an emphasis on entropy management 
+to balance exploration and exploitation.
 
-Algorithm: Proximal Policy Optimization (PPO)
+Reward Engineering: Developed a dense reward function that guides the agent toward the objective 
+while penalizing sub-optimal "looping" behaviors.
 
-Key Features
-Performance: High-speed game simulation using a custom-built C++ engine.
+Reward Shaping LogicThe agent's success is driven by a carefully engineered 
+reward function designed to mitigate the "sparse reward" problem. The step-wise reward 
+R is defined as:
 
-Hybrid Architecture: Seamless real-time data transfer between the C++ environment and the Python AI agent.
-
-Observation Space: Custom-designed feature extraction (e.g., proximity to walls, food direction, and self-collision risks).
-
-Robust Training: The model is trained on dynamic grid sizes to increase generalization and robustness.
-
-Architecture
-C++ Engine: Manages the game state, snake movement, collision detection, and score tracking.
-
-Pybind11 Wrapper: Exposes the C++ classes to Python, allowing the agent to "see" the game state and "send" actions.
-
-Python Trainer: Handles the neural network training loop, reward calculation, and hyperparameter tuning.
-
-Running the Project
-Testing the Model
-To run the pre-trained model and watch the AI play:
+R = W1 * FOOD_REWARD + W2 * DISTANCE_REWARD  + W3 * accessibility_reward
 
 
-python .\py_src\test_model.py
-Note: You can adjust the grid dimensions in the configuration file to see how the agent adapts.
+🛠 Technical Stack
+Engine: C++20 .
 
-Training the Model
-To start a new training session:
+ML Framework: PyTorch.
 
-python .\py_src\train.py
-The environment is designed to randomize the grid size each episode, ensuring the agent learns a robust strategy that isn't overfitted to a specific board size
+Binding: Pybind11.
+
+Optimization: Adam Optimizer with custom learning rate scheduling.
+
+Installation & Usage
+Train: python snake_ai.py 
+Test: python test_model.py
+Chack stats: python chack_stats.py
+you can change the board size and more in the config.py file
